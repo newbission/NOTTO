@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NOTTO - 이름별 로또번호 추천</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    :root {
+      --lotto-ball-size: 2rem;
+    }
+    body {
+      min-width: 400px;
+    }
+    .container {
+      max-width: 480px;
+    }
+    header hgroup {
+      margin-bottom: 0;
+    }
+    header hgroup p {
+      margin-bottom: 0;
+    }
+    #episode-info {
+      color: var(--pico-muted-color);
+    }
+    .search-bar {
+      margin-bottom: 1.5rem;
+    }
+    .search-bar input {
+      margin-bottom: 0;
+    }
+    .name-entry {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--pico-muted-border-color);
+    }
+    .name-entry:last-child {
+      border-bottom: none;
+    }
+    .name-label {
+      font-weight: 600;
+      min-width: 5rem;
+      font-size: 1.1rem;
+    }
+    .lotto-numbers {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+    .lotto-ball {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: var(--lotto-ball-size);
+      height: var(--lotto-ball-size);
+      border-radius: 50%;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .ball-1-10  { background-color: #fbc400; }
+    .ball-11-20 { background-color: #69c8f2; }
+    .ball-21-30 { background-color: #ff7272; }
+    .ball-31-40 { background-color: #aaa; }
+    .ball-41-45 { background-color: #b0d840; }
+    .no-results {
+      text-align: center;
+      padding: 2rem;
+      color: var(--pico-muted-color);
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header>
+      <hgroup>
+        <h1>NOTTO</h1>
+        <p id="episode-info"></p>
+      </hgroup>
+    </header>
+
+    <div class="search-bar">
+      <input type="search" id="search-input" placeholder="이름을 입력하세요">
+    </div>
+
+    <article>
+      <div id="results"></div>
+    </article>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
