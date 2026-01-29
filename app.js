@@ -1,10 +1,21 @@
-// GitHub raw URL 기본 경로
-const GITHUB_BASE = "https://raw.githubusercontent.com/newbission/NOTTO/data";
+// GitHub URL
+const GITHUB_RAW = "https://raw.githubusercontent.com/newbission/NOTTO/data";
+const GITHUB_API = "https://api.github.com/repos/newbission/NOTTO/contents";
 
 // 데이터 저장소
 let episodeData = {};
 let registeredNames = [];
 let rejectedNames = {};
+let pendingNames = [];
+
+// 완성형 한글인지 검사 (U+AC00-U+D7A3)
+function isCompleteHangul(str) {
+  if (!str || str.length === 0) return false;
+  return [...str].every((char) => {
+    const code = char.charCodeAt(0);
+    return code >= 0xac00 && code <= 0xd7a3;
+  });
+}
 
 // 번호 범위에 따른 볼 색상 클래스
 function getBallClass(num) {
@@ -53,12 +64,22 @@ function renderRejectedEntry(name, reason) {
   return `
     <div class="name-entry rejected">
       <span class="name-label">${name}</span>
-      <span class="rejected-msg">반려된 이름입니다${reasonText}</span>
+      <span class="status-msg">반려된 이름입니다${reasonText}</span>
     </div>
   `;
 }
 
-// 미등록 이름 렌더링
+// 등록 진행중 렌더링
+function renderPendingEntry(name) {
+  return `
+    <div class="name-entry pending">
+      <span class="name-label">${name}</span>
+      <span class="status-msg">등록 진행중</span>
+    </div>
+  `;
+}
+
+// 미등록 이름 렌더링 (등록 가능)
 function renderUnregisteredEntry(name) {
   return `
     <div class="name-entry unregistered">
@@ -68,9 +89,19 @@ function renderUnregisteredEntry(name) {
   `;
 }
 
+// 유효하지 않은 이름 렌더링
+function renderInvalidEntry(name) {
+  return `
+    <div class="name-entry invalid">
+      <span class="name-label">${name}</span>
+      <span class="status-msg">완성된 한글만 등록 가능합니다</span>
+    </div>
+  `;
+}
+
 // 등록 신청 처리
 function requestRegister(name) {
-  const btn = document.querySelector(`.register-btn`);
+  const btn = document.querySelector(".register-btn");
   if (btn) {
     btn.disabled = true;
     btn.textContent = "신청 완료";
@@ -121,8 +152,36 @@ function renderResults(query) {
     return;
   }
 
-  // 3. 미등록 이름
+  // 3. 등록 대기중인지 확인 (정확히 일치)
+  if (pendingNames.includes(trimmedQuery)) {
+    container.innerHTML = renderPendingEntry(trimmedQuery);
+    return;
+  }
+
+  // 4. 완성형 한글인지 확인
+  if (!isCompleteHangul(trimmedQuery)) {
+    container.innerHTML = renderInvalidEntry(trimmedQuery);
+    return;
+  }
+
+  // 5. 미등록 + 유효한 이름
   container.innerHTML = renderUnregisteredEntry(trimmedQuery);
+}
+
+// requests 브랜치에서 대기중인 이름 목록 로드
+async function loadPendingNames() {
+  try {
+    const res = await fetch(`${GITHUB_API}/regist?ref=requests`);
+    if (res.ok) {
+      const files = await res.json();
+      // 파일명에서 이름 추출 (이름_시간.json → 이름)
+      pendingNames = files
+        .filter((f) => f.type === "file")
+        .map((f) => f.name.replace(/_.+$/, ""));
+    }
+  } catch (e) {
+    console.error("대기 목록 로드 실패:", e);
+  }
 }
 
 // 데이터 로드
@@ -131,9 +190,10 @@ async function loadData() {
 
   try {
     const [episodeRes, registeredRes, rejectedRes] = await Promise.all([
-      fetch(`${GITHUB_BASE}/episodes/${episode}.json`),
-      fetch(`${GITHUB_BASE}/names/registered.json`),
-      fetch(`${GITHUB_BASE}/names/rejected.json`),
+      fetch(`${GITHUB_RAW}/episodes/${episode}.json`),
+      fetch(`${GITHUB_RAW}/names/registered.json`),
+      fetch(`${GITHUB_RAW}/names/rejected.json`),
+      loadPendingNames(),
     ]);
 
     if (episodeRes.ok) {

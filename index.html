@@ -5,99 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NOTTO - 이름별 로또번호 추천</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <style>
-    :root {
-      --lotto-ball-size: 2rem;
-    }
-    body {
-      min-width: 400px;
-    }
-    .container {
-      max-width: 480px;
-    }
-    header hgroup {
-      margin-bottom: 0;
-    }
-    header hgroup p {
-      margin-bottom: 0;
-    }
-    #episode-info {
-      color: var(--pico-muted-color);
-    }
-    .search-bar {
-      margin-bottom: 1.5rem;
-    }
-    .search-bar input {
-      margin-bottom: 0;
-    }
-    .name-entry {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.75rem 0;
-      border-bottom: 1px solid var(--pico-muted-border-color);
-    }
-    .name-entry:last-child {
-      border-bottom: none;
-    }
-    .name-label {
-      font-weight: 600;
-      min-width: 5rem;
-      font-size: 1.1rem;
-    }
-    .lotto-numbers {
-      display: flex;
-      gap: 0.4rem;
-      flex-wrap: wrap;
-    }
-    .lotto-ball {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: var(--lotto-ball-size);
-      height: var(--lotto-ball-size);
-      border-radius: 50%;
-      color: #fff;
-      font-weight: 700;
-      font-size: 0.85rem;
-    }
-    .ball-1-10  { background-color: #fbc400; }
-    .ball-11-20 { background-color: #69c8f2; }
-    .ball-21-30 { background-color: #ff7272; }
-    .ball-31-40 { background-color: #aaa; }
-    .ball-41-45 { background-color: #b0d840; }
-    .no-results {
-      text-align: center;
-      padding: 2rem;
-      color: var(--pico-muted-color);
-    }
-    .rejected .rejected-msg {
-      color: #d32f2f;
-      font-size: 0.9rem;
-    }
-    .unregistered .register-btn {
-      padding: 0.4rem 0.8rem;
-      font-size: 0.85rem;
-    }
-    .register-btn.submitted {
-      background-color: var(--pico-muted-color);
-      pointer-events: none;
-    }
+    body { min-width: 400px; }
+    .container { max-width: 480px; }
+    #episode-info { color: var(--pico-muted-color); }
+    .name-entry { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--pico-muted-border-color); }
+    .name-entry:last-child { border-bottom: none; }
+    .name-label { font-weight: 600; font-size: 1.1rem; }
+    .lotto-numbers { display: flex; gap: 0.4rem; }
+    .lotto-ball { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: 50%; color: #fff; font-weight: 700; font-size: 0.85rem; }
+    .ball-1-10 { background: #fbc400; }
+    .ball-11-20 { background: #69c8f2; }
+    .ball-21-30 { background: #ff7272; }
+    .ball-31-40 { background: #aaa; }
+    .ball-41-45 { background: #b0d840; }
+    .no-results { text-align: center; padding: 2rem; color: var(--pico-muted-color); }
+    .status-msg { font-size: 0.9rem; }
+    .rejected .status-msg { color: #d32f2f; }
+    .pending .status-msg { color: #1976d2; }
+    .invalid .status-msg { color: var(--pico-muted-color); }
+    .register-btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; margin: 0; }
+    .register-btn.submitted { background: var(--pico-muted-color); pointer-events: none; }
   </style>
 </head>
 <body>
   <main class="container">
-    <header>
-      <hgroup>
-        <h1>NOTTO</h1>
-        <p id="episode-info"></p>
-      </hgroup>
-    </header>
+    <hgroup>
+      <h1>NOTTO</h1>
+      <p id="episode-info"></p>
+    </hgroup>
 
-    <div class="search-bar">
-      <input type="search" id="search-input" placeholder="이름을 입력하세요">
-    </div>
+    <input type="search" id="search-input" placeholder="이름을 입력하세요">
 
     <article>
       <div id="results"></div>
