@@ -1,19 +1,10 @@
-// 더미 데이터: 이름별 추천 로또번호 (1~45, 중복 없이, 오름차순)
-const DUMMY_DATA = [
-  { name: "김민수", numbers: [3, 11, 22, 28, 35, 44] },
-  { name: "이서연", numbers: [1, 9, 17, 26, 33, 41] },
-  { name: "박지훈", numbers: [5, 14, 23, 30, 37, 42] },
-  { name: "최유진", numbers: [2, 10, 19, 27, 36, 45] },
-  { name: "정하은", numbers: [7, 13, 21, 29, 38, 43] },
-  { name: "강도현", numbers: [4, 12, 20, 31, 34, 40] },
-  { name: "윤서아", numbers: [6, 15, 24, 32, 39, 44] },
-  { name: "장민재", numbers: [8, 16, 25, 28, 36, 41] },
-  { name: "한소율", numbers: [1, 11, 18, 27, 33, 45] },
-  { name: "오준혁", numbers: [3, 14, 22, 30, 35, 42] },
-  { name: "신예린", numbers: [5, 10, 19, 26, 37, 43] },
-  { name: "임태우", numbers: [2, 13, 21, 29, 34, 40] },
-  { name: "송지우", numbers: [7, 16, 24, 31, 38, 44] },
-];
+// GitHub raw URL 기본 경로
+const GITHUB_BASE = "https://raw.githubusercontent.com/newbission/NOTTO/data";
+
+// 데이터 저장소
+let episodeData = {};
+let registeredNames = [];
+let rejectedNames = {};
 
 // 번호 범위에 따른 볼 색상 클래스
 function getBallClass(num) {
@@ -29,35 +20,9 @@ function renderBall(num) {
   return `<span class="lotto-ball ${getBallClass(num)}">${num}</span>`;
 }
 
-// 이름 항목 렌더링
-function renderEntry(entry) {
-  const balls = entry.numbers.map(renderBall).join("");
-  return `
-    <div class="name-entry">
-      <span class="name-label">${entry.name}</span>
-      <div class="lotto-numbers">${balls}</div>
-    </div>
-  `;
-}
-
-// 필터된 결과를 #results에 렌더링
-function renderResults(query) {
-  const container = document.getElementById("results");
-  const filtered = DUMMY_DATA.filter((entry) =>
-    entry.name.includes(query.trim())
-  );
-
-  if (filtered.length === 0) {
-    container.innerHTML = `<div class="no-results">검색 결과가 없습니다.</div>`;
-    return;
-  }
-
-  container.innerHTML = filtered.map(renderEntry).join("");
-}
-
 // 회차 계산 (기준: 2026-01-25 일요일 = 1209회차 시작, 매주 일요일 갱신)
 function getCurrentEpisode() {
-  const BASE_DATE = new Date(2026, 0, 25); // 2026-01-25 (일요일)
+  const BASE_DATE = new Date(2026, 0, 25);
   const BASE_EPISODE = 1209;
   const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
@@ -71,14 +36,133 @@ function displayEpisode() {
   el.textContent = `제${getCurrentEpisode()}회 추천번호`;
 }
 
+// 등록된 이름 렌더링
+function renderRegisteredEntry(name, numbers) {
+  const balls = numbers.map(renderBall).join("");
+  return `
+    <div class="name-entry">
+      <span class="name-label">${name}</span>
+      <div class="lotto-numbers">${balls}</div>
+    </div>
+  `;
+}
+
+// 반려된 이름 렌더링
+function renderRejectedEntry(name, reason) {
+  const reasonText = reason ? ` (사유: ${reason})` : "";
+  return `
+    <div class="name-entry rejected">
+      <span class="name-label">${name}</span>
+      <span class="rejected-msg">반려된 이름입니다${reasonText}</span>
+    </div>
+  `;
+}
+
+// 미등록 이름 렌더링
+function renderUnregisteredEntry(name) {
+  return `
+    <div class="name-entry unregistered">
+      <span class="name-label">${name}</span>
+      <button class="register-btn" onclick="requestRegister('${name}')">등록 신청</button>
+    </div>
+  `;
+}
+
+// 등록 신청 처리
+function requestRegister(name) {
+  const btn = document.querySelector(`.register-btn`);
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "신청 완료";
+    btn.classList.add("submitted");
+  }
+  // TODO: 실제로 requests 브랜치에 파일 생성하는 로직 (서버 필요)
+  alert(`"${name}" 등록 신청이 완료되었습니다.`);
+}
+
+// 검색 결과 렌더링
+function renderResults(query) {
+  const container = document.getElementById("results");
+  const trimmedQuery = query.trim();
+
+  // 빈 검색어: 등록된 이름 전체 표시
+  if (!trimmedQuery) {
+    if (registeredNames.length === 0) {
+      container.innerHTML = `<div class="no-results">데이터를 불러오는 중...</div>`;
+      return;
+    }
+    const entries = registeredNames
+      .filter((name) => episodeData[name])
+      .map((name) => renderRegisteredEntry(name, episodeData[name]));
+    container.innerHTML = entries.join("");
+    return;
+  }
+
+  // 검색어가 있는 경우
+  // 1. 등록된 이름 중 매칭
+  const matchedRegistered = registeredNames.filter((name) =>
+    name.includes(trimmedQuery)
+  );
+
+  if (matchedRegistered.length > 0) {
+    const entries = matchedRegistered
+      .filter((name) => episodeData[name])
+      .map((name) => renderRegisteredEntry(name, episodeData[name]));
+    container.innerHTML = entries.join("");
+    return;
+  }
+
+  // 2. 반려된 이름인지 확인 (정확히 일치)
+  if (rejectedNames.hasOwnProperty(trimmedQuery)) {
+    container.innerHTML = renderRejectedEntry(
+      trimmedQuery,
+      rejectedNames[trimmedQuery]
+    );
+    return;
+  }
+
+  // 3. 미등록 이름
+  container.innerHTML = renderUnregisteredEntry(trimmedQuery);
+}
+
+// 데이터 로드
+async function loadData() {
+  const episode = getCurrentEpisode();
+
+  try {
+    const [episodeRes, registeredRes, rejectedRes] = await Promise.all([
+      fetch(`${GITHUB_BASE}/episodes/${episode}.json`),
+      fetch(`${GITHUB_BASE}/names/registered.json`),
+      fetch(`${GITHUB_BASE}/names/rejected.json`),
+    ]);
+
+    if (episodeRes.ok) {
+      episodeData = await episodeRes.json();
+    }
+    if (registeredRes.ok) {
+      registeredNames = await registeredRes.json();
+    }
+    if (rejectedRes.ok) {
+      rejectedNames = await rejectedRes.json();
+    }
+  } catch (e) {
+    console.error("데이터 로드 실패:", e);
+  }
+
+  renderResults("");
+}
+
 // 초기화
 document.addEventListener("DOMContentLoaded", () => {
-  renderResults("");
   displayEpisode();
+  loadData();
 
   const searchInput = document.getElementById("search-input");
   searchInput.addEventListener("input", (e) => {
-    const koreanOnly = e.target.value.replace(/[^\uAC00-\uD7A3\u3131-\u3163\u318D-\u318F]/g, "");
+    const koreanOnly = e.target.value.replace(
+      /[^\uAC00-\uD7A3\u3131-\u3163\u318D-\u318F]/g,
+      ""
+    );
     if (e.target.value !== koreanOnly) {
       e.target.value = koreanOnly;
     }
