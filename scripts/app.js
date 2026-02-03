@@ -100,15 +100,39 @@ function renderInvalidEntry(name) {
 }
 
 // 등록 신청 처리
-function requestRegister(name) {
+// 등록 신청 처리
+async function requestRegister(name) {
   const btn = document.querySelector(".register-btn");
   if (btn) {
     btn.disabled = true;
-    btn.textContent = "신청 완료";
-    btn.classList.add("submitted");
+    btn.textContent = "신청 중...";
   }
-  // TODO: 실제로 requests 브랜치에 파일 생성하는 로직 (서버 필요)
-  alert(`"${name}" 등록 신청이 완료되었습니다.`);
+
+  try {
+    const res = await fetch("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      if (btn) {
+        btn.textContent = "신청 완료";
+        btn.classList.add("submitted");
+      }
+      alert(data.message || "등록 신청이 완료되었습니다.");
+    } else {
+      throw new Error(data.error || "등록 신청에 실패했습니다.");
+    }
+  } catch (error) {
+    alert(error.message);
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "등록 신청";
+    }
+  }
 }
 
 // 검색 결과 렌더링

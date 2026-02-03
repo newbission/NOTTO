@@ -413,7 +413,7 @@ function confirmReject() {
   pendingRejectNames.forEach((name) => {
     if (rejectSource === "pending") {
       const req = pendingRequests.find((r) => r.name === name) ||
-                  changes.addRequest.find((r) => r.name === name);
+        changes.addRequest.find((r) => r.name === name);
       if (req && !changes.reject.find((r) => r.name === name)) {
         changes.reject.push({ name, reason, timestamp: req.timestamp });
       }
@@ -583,6 +583,7 @@ function cancelChanges() {
 }
 
 // 저장
+// 저장
 async function saveChanges() {
   const totalChanges =
     changes.approve.length + changes.reject.length +
@@ -595,10 +596,47 @@ async function saveChanges() {
     return;
   }
 
-  console.log("저장할 변경사항:", changes);
-  console.log("현재 회차:", getCurrentEpisode());
+  const password = localStorage.getItem("adminAuth");
+  if (!password) {
+    alert("로그인이 필요합니다.");
+    location.reload();
+    return;
+  }
 
-  alert(`${totalChanges}건의 변경사항이 저장되었습니다. (API 미구현 - 콘솔 확인)`);
+  // UI 로딩 표시
+  const saveBtn = document.querySelector(".save-btn") || document.querySelector("button[onclick='saveChanges()']");
+  const originalText = saveBtn ? saveBtn.textContent : "저장";
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = "저장 중...";
+  }
+
+  try {
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${password}`
+      },
+      body: JSON.stringify({ changes }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      alert("변경사항이 성공적으로 저장되었습니다.");
+      location.reload(); // 데이터 갱신을 위해 새로고침
+    } else {
+      throw new Error(data.error || "저장에 실패했습니다.");
+    }
+  } catch (error) {
+    console.error("Save Error:", error);
+    alert(`오류 발생: ${error.message}`);
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText;
+    }
+  }
 }
 
 // 초기화
