@@ -1,4 +1,4 @@
-import { getFile, uploadFile, DATA_BRANCH } from "../utils.js";
+import { getFile, getFileWithSha, uploadFile, DATA_BRANCH } from "../utils.js";
 import { generateLottoNumbers } from "../ai.js";
 
 function getCurrentEpisode() {
@@ -21,10 +21,13 @@ export default async function handler(req, res) {
         const currentEpisode = getCurrentEpisode();
         const episodePath = `episodes/${currentEpisode}.json`;
 
-        const [registered, episodeDataFile] = await Promise.all([
+        const [registered, episodeDataRes] = await Promise.all([
             getFile("names/registered.json", DATA_BRANCH),
-            getFile(episodePath, DATA_BRANCH).catch(() => ({})), // 파일 없으면 빈 객체
+            getFileWithSha(episodePath, DATA_BRANCH).catch(() => null), // 파일 없으면 null
         ]);
+
+        const episodeDataFile = episodeDataRes?.content;
+        const currentSha = episodeDataRes?.sha;
 
         const episodeData = episodeDataFile || {};
         let updated = false;
@@ -55,7 +58,8 @@ export default async function handler(req, res) {
                 episodePath,
                 episodeData,
                 `Update episode ${currentEpisode} data`,
-                DATA_BRANCH
+                DATA_BRANCH,
+                currentSha
             );
             return res.status(200).json({ success: true, message: `Episode ${currentEpisode} updated` });
         } else {

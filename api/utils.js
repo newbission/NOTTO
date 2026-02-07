@@ -15,12 +15,12 @@ const octokit = new Octokit({
 });
 
 /**
- * GitHub에서 파일 내용 읽기
+ * GitHub에서 파일 내용과 SHA 읽기
  * @param {string} path 파일 경로
  * @param {string} branch 브랜치 이름
- * @returns {Promise<any|null>} JSON 파싱된 데이터 또는 null
+ * @returns {Promise<{content: any, sha: string}|null>} 데이터와 SHA 또는 null
  */
-export async function getFile(path, branch = DATA_BRANCH) {
+export async function getFileWithSha(path, branch = DATA_BRANCH) {
   try {
     const { data } = await octokit.rest.repos.getContent({
       owner: GITHUB_OWNER,
@@ -33,11 +33,25 @@ export async function getFile(path, branch = DATA_BRANCH) {
     if (!data.content) return null;
 
     const content = Buffer.from(data.content, "base64").toString("utf-8");
-    return JSON.parse(content);
+    return {
+      content: JSON.parse(content),
+      sha: data.sha,
+    };
   } catch (error) {
     if (error.status === 404) return null;
     throw error;
   }
+}
+
+/**
+ * GitHub에서 파일 내용 읽기
+ * @param {string} path 파일 경로
+ * @param {string} branch 브랜치 이름
+ * @returns {Promise<any|null>} JSON 파싱된 데이터 또는 null
+ */
+export async function getFile(path, branch = DATA_BRANCH) {
+  const result = await getFileWithSha(path, branch);
+  return result ? result.content : null;
 }
 
 /**
