@@ -6,7 +6,8 @@ function getCurrentEpisode() {
     const BASE_EPISODE = 1209;
     const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
     const now = new Date();
-    const weeks = Math.floor((now - BASE_DATE) / MS_PER_WEEK);
+    const kstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000); // UTC to KST
+    const weeks = Math.floor((kstNow - BASE_DATE) / MS_PER_WEEK);
     return BASE_EPISODE + weeks;
 }
 

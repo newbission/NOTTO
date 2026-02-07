@@ -31,14 +31,16 @@ function renderBall(num) {
   return `<span class="lotto-ball ${getBallClass(num)}">${num}</span>`;
 }
 
-// 회차 계산 (기준: 2026-01-25 일요일 = 1209회차 시작, 매주 일요일 갱신)
+// 회차 계산 (기준: 2026-01-25 00:00 KST = 1209회차 시작)
+// KST 일요일 0시 == UTC 토요일 15시
 function getCurrentEpisode() {
-  const BASE_DATE = new Date(2026, 0, 25);
+  // 2026-01-24 15:00:00 UTC (= 2026-01-25 00:00:00 KST)
+  const BASE_DATE_UTC = new Date(Date.UTC(2026, 0, 24, 15, 0, 0));
   const BASE_EPISODE = 1209;
   const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
   const now = new Date();
-  const weeks = Math.floor((now - BASE_DATE) / MS_PER_WEEK);
+  const weeks = Math.floor((now - BASE_DATE_UTC) / MS_PER_WEEK);
   return BASE_EPISODE + weeks;
 }
 
