@@ -1,0 +1,17 @@
+{
+    "name": "notto-draw-automation",
+    "version": "1.0.0",
+    "description": "Weekly lucky number draw using Gemini API",
+    "main": "draw.js",
+    "scripts": {
+        "start": "node draw.js",
+        "test": "MOCK=true node draw.js"
+    },
+    "dependencies": {
+        "@google/generative-ai": "^0.2.1",
+        "dotenv": "^16.4.5"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}

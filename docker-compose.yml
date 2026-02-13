@@ -1,0 +1,30 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+    environment:
+      DB_HOST: db
+      DB_NAME: notto_db
+      DB_USER: notto_user
+      DB_PASSWORD: notto_password
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    container_name: notto_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: notto_db
+      MYSQL_USER: notto_user
+      MYSQL_PASSWORD: notto_password
+      MYSQL_ROOT_PASSWORD: root_password
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database.sql:/docker-entrypoint-initdb.d/init.sql
+
+volumes:
+  db_data:

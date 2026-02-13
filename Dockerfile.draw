@@ -1,0 +1,15 @@
+# Base image
+FROM node:20-alpine
+
+# Working directory
+WORKDIR /app
+
+# Install dependencies first (for caching)
+COPY package.json package-lock.json* ./
+RUN npm install
+
+# Copy application source
+COPY draw.js .
+
+# Default command (can be overridden)
+CMD ["node", "draw.js"]
