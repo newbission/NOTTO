@@ -1,0 +1,33 @@
+# --- PHP / Composer ---
+vendor/
+.phpunit.result.cache
+.php_cs.cache
+phpcs.xml
+phpunit.xml
+
+# --- 환경 설정 및 보안 ---
+.env
+.env.local
+.env.testing
+*.bak
+*.swp
+
+# --- 로그 및 캐시 ---
+*.log
+storage/logs/B
+storage/framework/views/
+storage/framework/cache/
+bootstrap/cache/
+
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.vscode/sftp.json
+
+# --- 빌드 결과물 (Frontend 컴파일 시) ---
+node_modules/
+public/storage
+public/build
+dist/
