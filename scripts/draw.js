@@ -24,9 +24,9 @@ const mockUpdateNumbers = async (data) => {
 const fetchPendingUsers = async () => {
     if (IS_MOCK) return mockGetUsers();
 
-    console.log(`Fetching users from ${API_URL}/get_users.php?status=pending...`);
+    console.log(`Fetching users from ${API_URL}/api/get_users.php?status=pending...`);
     try {
-        const response = await fetch(`${API_URL}/get_users.php?status=pending`);
+        const response = await fetch(`${API_URL}/api/get_users.php?status=pending`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
         // Ensure data is array
@@ -40,9 +40,9 @@ const fetchPendingUsers = async () => {
 const sendResults = async (results) => {
     if (IS_MOCK) return mockUpdateNumbers(results);
 
-    console.log(`Sending results to ${API_URL}/update_numbers.php...`);
+    console.log(`Sending results to ${API_URL}/api/update_numbers.php...`);
     try {
-        const response = await fetch(`${API_URL}/update_numbers.php`, {
+        const response = await fetch(`${API_URL}/api/update_numbers.php`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(results)

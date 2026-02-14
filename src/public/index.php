@@ -65,15 +65,15 @@
                     const formData = new FormData();
                     formData.append('name', name);
 
-                    const response = await fetch('add_user.php', {
+                    const response = await fetch('../api/add_user.php', {
                         method: 'POST',
                         body: formData
                     });
 
                     if (!response.ok) throw new Error('Network response was not ok');
-                    
+
                     const result = await response.json();
-                    
+
                     // Update the temp card with real data or remove pending status
                     // The PHP returns { message: ..., data: { ... } }
                     const realCard = createUserCard(result.data || result, false);
@@ -99,7 +99,7 @@
 
                 try {
                     // Assuming get_users.php accepts a query param for pagination, e.g., ?page= or ?offset=
-                    const response = await fetch(`get_users.php?page=${page}&limit=10`);
+                    const response = await fetch(`../api/get_users.php?page=${page}&limit=10`);
 
                     if (response.ok) {
                         const users = await response.json();
