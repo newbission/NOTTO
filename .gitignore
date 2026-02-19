@@ -25,6 +25,7 @@ Thumbs.db
 .idea/
 .vscode/
 .vscode/sftp.json
+.agent
 
 # --- 빌드 결과물 (Frontend 컴파일 시) ---
 node_modules/
