@@ -3,6 +3,9 @@
 -- InfinityFree 호환 (FK 미지원, MyISAM 호환)
 -- ============================================
 
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
 CREATE TABLE IF NOT EXISTS `names` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(80) NOT NULL COMMENT '등록 이름 (UTF-8, 최대 20자)',

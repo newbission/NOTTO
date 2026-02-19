@@ -25,7 +25,7 @@ services:
   db:
     image: mysql:8.0
     container_name: notto-db
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --init-connect='SET NAMES utf8mb4'
     ports:
       - "3307:3306"
     environment:

@@ -17,7 +17,16 @@ require_once __DIR__ . '/../src/models/Name.php';
 requireMethod('POST');
 
 $rawName = $_POST['name'] ?? '';
-$name = validateName($rawName);
+$name = trim($rawName);
+
+$validationError = validateName($name);
+if ($validationError) {
+    $messages = [
+        'NAME_EMPTY' => '이름을 입력해주세요.',
+        'NAME_TOO_LONG' => '이름은 최대 20자까지 가능합니다.',
+    ];
+    errorResponse(400, $validationError, $messages[$validationError] ?? '유효하지 않은 이름입니다.');
+}
 
 logInfo('이름 등록 요청', ['name' => $name, 'ip' => $_SERVER['REMOTE_ADDR'] ?? ''], 'api');
 

@@ -6,16 +6,8 @@ declare(strict_types=1);
  * Logger Helper
  *
  * 날짜별 로그 파일로 기록합니다.
- * 경로: logs/YYYY-MM-DD.log
+ * 경로: logs/{channel}_{YYYY-MM-DD}.log
  */
-
-/** 로그 레벨 상수 */
-if (!defined('LOG_INFO')) {
-    define('LOG_INFO', 'INFO');
-    define('LOG_WARN', 'WARN');
-    define('LOG_ERROR', 'ERROR');
-    define('LOG_DEBUG', 'DEBUG');
-}
 
 /**
  * 로그 디렉토리 경로 (프로젝트 루트 기준)
@@ -59,26 +51,26 @@ function writeLog(string $level, string $message, array $context = [], string $c
 }
 
 /**
- * 편의 함수들
+ * 편의 함수들 — 직접 문자열 전달 (PHP 내장 LOG_INFO 상수 충돌 방지)
  */
 function logInfo(string $message, array $context = [], string $channel = 'app'): void
 {
-    writeLog(LOG_INFO, $message, $context, $channel);
+    writeLog('INFO', $message, $context, $channel);
 }
 
 function logWarn(string $message, array $context = [], string $channel = 'app'): void
 {
-    writeLog(LOG_WARN, $message, $context, $channel);
+    writeLog('WARN', $message, $context, $channel);
 }
 
 function logError(string $message, array $context = [], string $channel = 'app'): void
 {
-    writeLog(LOG_ERROR, $message, $context, $channel);
+    writeLog('ERROR', $message, $context, $channel);
 }
 
 function logDebug(string $message, array $context = [], string $channel = 'app'): void
 {
     if (function_exists('env') && env('APP_DEBUG') === 'true') {
-        writeLog(LOG_DEBUG, $message, $context, $channel);
+        writeLog('DEBUG', $message, $context, $channel);
     }
 }
