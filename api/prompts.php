@@ -5,13 +5,14 @@ declare(strict_types=1);
 /**
  * GET /api/prompts.php — 프롬프트 관리 (🔒 관리자)
  *
- * ?token=XXX&action=list          — 전체 목록
- * ?token=XXX&action=create&type=weekly&content=...&activate=true  — 생성
- * ?token=XXX&action=activate&id=3 — 활성 전환
+ * ?token=XXX&action=list
+ * ?token=XXX&action=create&type=weekly&content=...&activate=true
+ * ?token=XXX&action=activate&id=3
  */
 
 require_once __DIR__ . '/../src/config/database.php';
 require_once __DIR__ . '/../src/helpers/response.php';
+require_once __DIR__ . '/../src/helpers/logger.php';
 require_once __DIR__ . '/../src/models/Prompt.php';
 
 requireMethod('GET');
@@ -19,6 +20,8 @@ requireAdminToken();
 
 $action = $_GET['action'] ?? 'list';
 $prompt = new Prompt();
+
+logInfo('프롬프트 관리 API 호출', ['action' => $action], 'api');
 
 switch ($action) {
     case 'list':
@@ -31,6 +34,7 @@ switch ($action) {
             'created_at' => $p['created_at'],
             'updated_at' => $p['updated_at'],
         ], $all);
+        logInfo('프롬프트 목록 조회', ['count' => count($data)], 'api');
         jsonResponse($data);
 
     case 'create':
@@ -46,6 +50,7 @@ switch ($action) {
         }
 
         $created = $prompt->create($type, $content, $activate);
+        logInfo('프롬프트 생성 완료', ['id' => $created['id'], 'type' => $type, 'activate' => $activate], 'api');
         jsonResponse($created, [], 201);
 
     case 'activate':
@@ -59,6 +64,7 @@ switch ($action) {
             errorResponse(404, 'PROMPT_NOT_FOUND', '해당 프롬프트를 찾을 수 없습니다.');
         }
 
+        logInfo('프롬프트 활성화 완료', ['id' => $id], 'api');
         jsonResponse(['activated' => $id]);
 
     default:

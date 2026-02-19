@@ -5,10 +5,11 @@ declare(strict_types=1);
 /**
  * Round Model
  *
- * rounds + user_rounds 테이블 CRUD
+ * rounds + name_rounds 테이블 CRUD
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../helpers/logger.php';
 
 class Round
 {
@@ -66,6 +67,7 @@ class Round
         $stmt->execute([$roundNumber, $drawDate]);
 
         $id = (int) $this->pdo->lastInsertId();
+        logInfo('새 회차 생성', ['id' => $id, 'round_number' => $roundNumber, 'draw_date' => $drawDate], 'model');
         return $this->findById($id);
     }
 
@@ -78,22 +80,24 @@ class Round
             "UPDATE rounds SET winning_numbers = ?, bonus_number = ? WHERE round_number = ?"
         );
         $stmt->execute([json_encode($numbers), $bonus, $roundNumber]);
+        logInfo('당첨번호 저장', ['round' => $roundNumber, 'numbers' => $numbers, 'bonus' => $bonus], 'model');
     }
 
     /**
-     * user_rounds에 번호 저장
+     * name_rounds에 번호 저장
      */
-    public function saveUserNumbers(int $userId, int $roundId, array $numbers): void
+    public function saveNameNumbers(int $nameId, int $roundId, array $numbers): void
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO user_rounds (user_id, round_id, numbers) VALUES (?, ?, ?)
+            "INSERT INTO name_rounds (name_id, round_id, numbers) VALUES (?, ?, ?)
              ON DUPLICATE KEY UPDATE numbers = VALUES(numbers)"
         );
-        $stmt->execute([$userId, $roundId, json_encode($numbers)]);
+        $stmt->execute([$nameId, $roundId, json_encode($numbers)]);
+        logDebug('이름별 번호 저장', ['name_id' => $nameId, 'round_id' => $roundId, 'numbers' => $numbers], 'model');
     }
 
     /**
-     * 해당 회차 모든 user_rounds의 matched_count 계산 및 업데이트
+     * 해당 회차 모든 name_rounds의 matched_count 계산 및 업데이트
      */
     public function calculateMatches(int $roundId): int
     {
@@ -104,37 +108,25 @@ class Round
 
         $winningNumbers = json_decode($round['winning_numbers'], true);
 
-        // 해당 회차의 모든 user_rounds 조회
         $stmt = $this->pdo->prepare(
-            "SELECT id, numbers FROM user_rounds WHERE round_id = ?"
+            "SELECT id, numbers FROM name_rounds WHERE round_id = ?"
         );
         $stmt->execute([$roundId]);
-        $userRounds = $stmt->fetchAll();
+        $nameRounds = $stmt->fetchAll();
 
         $updateStmt = $this->pdo->prepare(
-            "UPDATE user_rounds SET matched_count = ? WHERE id = ?"
+            "UPDATE name_rounds SET matched_count = ? WHERE id = ?"
         );
 
         $updated = 0;
-        foreach ($userRounds as $ur) {
-            $userNumbers = json_decode($ur['numbers'], true);
-            $matched = count(array_intersect($userNumbers, $winningNumbers));
-            $updateStmt->execute([$matched, $ur['id']]);
+        foreach ($nameRounds as $nr) {
+            $nameNumbers = json_decode($nr['numbers'], true);
+            $matched = count(array_intersect($nameNumbers, $winningNumbers));
+            $updateStmt->execute([$matched, $nr['id']]);
             $updated++;
         }
 
+        logInfo('적중 수 계산 완료', ['round_id' => $roundId, 'updated' => $updated], 'model');
         return $updated;
-    }
-
-    /**
-     * 특정 회차에 이미 번호가 생성된 사용자 ID 목록
-     */
-    public function getGeneratedUserIds(int $roundId): array
-    {
-        $stmt = $this->pdo->prepare(
-            "SELECT user_id FROM user_rounds WHERE round_id = ?"
-        );
-        $stmt->execute([$roundId]);
-        return array_column($stmt->fetchAll(), 'user_id');
     }
 }

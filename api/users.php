@@ -3,24 +3,33 @@
 declare(strict_types=1);
 
 /**
- * GET /api/users.php — 전체 사용자 목록 (인피니티 스크롤)
+ * GET /api/users.php → names.php — 전체 이름 목록
+ *
+ * ?page=1&per_page=20&sort=newest
  */
 
 require_once __DIR__ . '/../src/config/database.php';
 require_once __DIR__ . '/../src/helpers/response.php';
 require_once __DIR__ . '/../src/helpers/validator.php';
-require_once __DIR__ . '/../src/models/User.php';
+require_once __DIR__ . '/../src/helpers/logger.php';
+require_once __DIR__ . '/../src/models/Name.php';
 
 requireMethod('GET');
 
-$pagination = parsePagination();
-$sort = parseSort(['newest', 'oldest', 'name_asc', 'name_desc']);
+$page = max(1, (int) ($_GET['page'] ?? 1));
+$perPage = min(50, max(1, (int) ($_GET['per_page'] ?? 20)));
+$sort = $_GET['sort'] ?? 'newest';
+$offset = ($page - 1) * $perPage;
+
 $orderBy = sortToOrderBy($sort);
 
-$user = new User();
-$results = $user->getAll($orderBy, $pagination['offset'], $pagination['per_page']);
-$total = $user->countAll();
+logInfo('이름 목록 요청', ['page' => $page, 'per_page' => $perPage, 'sort' => $sort], 'api');
 
+$nameModel = new Name();
+$results = $nameModel->getAll($orderBy, $offset, $perPage);
+$total = $nameModel->countAll();
+
+// 결과 정리
 $data = array_map(function ($row) {
     return [
         'id' => (int) $row['id'],
@@ -35,12 +44,12 @@ $data = array_map(function ($row) {
     ];
 }, $results);
 
-$hasMore = ($pagination['offset'] + $pagination['per_page']) < $total;
+logInfo('이름 목록 응답', ['count' => count($data), 'total' => $total, 'page' => $page], 'api');
 
 jsonResponse($data, [
-    'page' => $pagination['page'],
-    'per_page' => $pagination['per_page'],
+    'page' => $page,
+    'per_page' => $perPage,
     'total' => $total,
-    'has_more' => $hasMore,
+    'has_more' => ($page * $perPage) < $total,
     'sort' => $sort,
 ]);

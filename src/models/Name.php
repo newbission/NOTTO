@@ -3,14 +3,15 @@
 declare(strict_types=1);
 
 /**
- * User Model
+ * Name Model
  *
- * users 테이블 CRUD
+ * names 테이블 CRUD (이 서비스에는 "사용자" 개념이 없고 "이름"만 존재)
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../helpers/logger.php';
 
-class User
+class Name
 {
     private PDO $pdo;
 
@@ -20,22 +21,24 @@ class User
     }
 
     /**
-     * 이름으로 사용자 조회 (정확히 일치)
+     * 이름으로 조회 (정확히 일치)
      */
     public function findByName(string $name): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE name = ?");
+        $stmt = $this->pdo->prepare("SELECT * FROM names WHERE name = ?");
         $stmt->execute([$name]);
         $result = $stmt->fetch();
+
+        logDebug('Name.findByName', ['name' => $name, 'found' => $result !== false], 'model');
         return $result ?: null;
     }
 
     /**
-     * ID로 사용자 조회
+     * ID로 조회
      */
     public function findById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt = $this->pdo->prepare("SELECT * FROM names WHERE id = ?");
         $stmt->execute([$id]);
         $result = $stmt->fetch();
         return $result ?: null;
@@ -47,11 +50,12 @@ class User
     public function create(string $name): array
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO users (name, status) VALUES (?, 'pending')"
+            "INSERT INTO names (name, status) VALUES (?, 'pending')"
         );
         $stmt->execute([$name]);
 
         $id = (int) $this->pdo->lastInsertId();
+        logInfo("이름 등록", ['id' => $id, 'name' => $name, 'status' => 'pending'], 'model');
         return $this->findById($id);
     }
 
@@ -61,28 +65,29 @@ class User
     public function search(string $query, int $offset, int $limit): array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT u.*, 
-                    ur.numbers AS weekly_numbers,
-                    ur.matched_count,
+            "SELECT n.*, 
+                    nr.numbers AS weekly_numbers,
+                    nr.matched_count,
                     r.round_number,
                     r.winning_numbers,
                     r.bonus_number
-             FROM users u
+             FROM names n
              LEFT JOIN (
-                 SELECT ur2.user_id, ur2.numbers, ur2.matched_count, ur2.round_id
-                 FROM user_rounds ur2
-                 INNER JOIN (
-                     SELECT MAX(id) AS max_id FROM rounds
-                 ) latest ON ur2.round_id = (SELECT MAX(id) FROM rounds)
-             ) ur ON u.id = ur.user_id
-             LEFT JOIN rounds r ON ur.round_id = r.id
-             WHERE u.name LIKE ? AND u.status != 'deleted'
-             ORDER BY u.created_at DESC
+                 SELECT nr2.name_id, nr2.numbers, nr2.matched_count, nr2.round_id
+                 FROM name_rounds nr2
+                 WHERE nr2.round_id = (SELECT MAX(id) FROM rounds)
+             ) nr ON n.id = nr.name_id
+             LEFT JOIN rounds r ON nr.round_id = r.id
+             WHERE n.name LIKE ? AND n.status != 'deleted'
+             ORDER BY n.created_at DESC
              LIMIT ? OFFSET ?"
         );
         $likeQuery = '%' . $query . '%';
         $stmt->execute([$likeQuery, $limit, $offset]);
-        return $stmt->fetchAll();
+        $results = $stmt->fetchAll();
+
+        logInfo('이름 검색', ['query' => $query, 'results' => count($results)], 'model');
+        return $results;
     }
 
     /**
@@ -91,7 +96,7 @@ class User
     public function searchCount(string $query): int
     {
         $stmt = $this->pdo->prepare(
-            "SELECT COUNT(*) FROM users WHERE name LIKE ? AND status != 'deleted'"
+            "SELECT COUNT(*) FROM names WHERE name LIKE ? AND status != 'deleted'"
         );
         $stmt->execute(['%' . $query . '%']);
         return (int) $stmt->fetchColumn();
@@ -102,18 +107,18 @@ class User
      */
     public function getAll(string $orderBy, int $offset, int $limit): array
     {
-        $sql = "SELECT u.id, u.name, u.status, u.created_at,
-                       ur.numbers AS weekly_numbers,
-                       ur.matched_count,
+        $sql = "SELECT n.id, n.name, n.status, n.created_at,
+                       nr.numbers AS weekly_numbers,
+                       nr.matched_count,
                        r.round_number
-                FROM users u
+                FROM names n
                 LEFT JOIN (
-                    SELECT ur2.user_id, ur2.numbers, ur2.matched_count, ur2.round_id
-                    FROM user_rounds ur2
-                    WHERE ur2.round_id = (SELECT MAX(id) FROM rounds)
-                ) ur ON u.id = ur.user_id
-                LEFT JOIN rounds r ON ur.round_id = r.id
-                WHERE u.status != 'deleted'
+                    SELECT nr2.name_id, nr2.numbers, nr2.matched_count, nr2.round_id
+                    FROM name_rounds nr2
+                    WHERE nr2.round_id = (SELECT MAX(id) FROM rounds)
+                ) nr ON n.id = nr.name_id
+                LEFT JOIN rounds r ON nr.round_id = r.id
+                WHERE n.status != 'deleted'
                 ORDER BY $orderBy
                 LIMIT ? OFFSET ?";
 
@@ -128,29 +133,29 @@ class User
     public function countAll(): int
     {
         $stmt = $this->pdo->query(
-            "SELECT COUNT(*) FROM users WHERE status != 'deleted'"
+            "SELECT COUNT(*) FROM names WHERE status != 'deleted'"
         );
         return (int) $stmt->fetchColumn();
     }
 
     /**
-     * pending 상태 사용자 전체 조회
+     * pending 상태 전체 조회
      */
     public function getPending(): array
     {
         $stmt = $this->pdo->query(
-            "SELECT * FROM users WHERE status = 'pending' ORDER BY created_at ASC"
+            "SELECT * FROM names WHERE status = 'pending' ORDER BY created_at ASC"
         );
         return $stmt->fetchAll();
     }
 
     /**
-     * active 상태 사용자 전체 조회
+     * active 상태 전체 조회
      */
     public function getActive(): array
     {
         $stmt = $this->pdo->query(
-            "SELECT * FROM users WHERE status = 'active' ORDER BY id ASC"
+            "SELECT * FROM names WHERE status = 'active' ORDER BY id ASC"
         );
         return $stmt->fetchAll();
     }
@@ -161,9 +166,10 @@ class User
     public function activateWithFixedNumbers(int $id, array $numbers): void
     {
         $stmt = $this->pdo->prepare(
-            "UPDATE users SET fixed_numbers = ?, status = 'active' WHERE id = ?"
+            "UPDATE names SET fixed_numbers = ?, status = 'active' WHERE id = ?"
         );
         $stmt->execute([json_encode($numbers), $id]);
+        logInfo('이름 활성화 + 고유번호 부여', ['id' => $id, 'numbers' => $numbers], 'model');
     }
 
     /**
@@ -171,8 +177,9 @@ class User
      */
     public function updateStatus(int $id, string $status): void
     {
-        $stmt = $this->pdo->prepare("UPDATE users SET status = ? WHERE id = ?");
+        $stmt = $this->pdo->prepare("UPDATE names SET status = ? WHERE id = ?");
         $stmt->execute([$status, $id]);
+        logInfo('이름 상태 변경', ['id' => $id, 'status' => $status], 'model');
     }
 
     /**
@@ -182,10 +189,12 @@ class User
     {
         $stmt = $this->pdo->prepare(
             "SELECT id, name, fixed_numbers, status, created_at 
-             FROM users WHERE name = ? AND status != 'deleted'"
+             FROM names WHERE name = ? AND status != 'deleted'"
         );
         $stmt->execute([$name]);
         $result = $stmt->fetch();
+
+        logInfo('고유번호 조회', ['name' => $name, 'found' => $result !== false], 'model');
         return $result ?: null;
     }
 }

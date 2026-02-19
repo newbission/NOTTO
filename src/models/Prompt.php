@@ -9,6 +9,7 @@ declare(strict_types=1);
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../helpers/logger.php';
 
 class Prompt
 {
@@ -88,6 +89,7 @@ class Prompt
             "UPDATE prompts SET is_active = 1 WHERE id = ?"
         );
         $stmt->execute([$id]);
+        logInfo('프롬프트 활성화', ['id' => $id, 'type' => $prompt['type']], 'model');
         return true;
     }
 

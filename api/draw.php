@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/config/database.php';
 require_once __DIR__ . '/../src/helpers/response.php';
+require_once __DIR__ . '/../src/helpers/logger.php';
 require_once __DIR__ . '/../src/services/DrawService.php';
 
 requireMethod('POST');
@@ -17,6 +18,8 @@ requireAdminToken();
 
 $roundNumber = (int) ($_POST['round_number'] ?? 0);
 $drawDate = $_POST['draw_date'] ?? '';
+
+logInfo('매주 번호 생성 API 호출', ['round_number' => $roundNumber, 'draw_date' => $drawDate], 'api');
 
 if ($roundNumber <= 0) {
     errorResponse(400, 'INVALID_ROUND', '유효한 회차 번호를 입력해주세요.');
@@ -38,4 +41,5 @@ if (isset($result['error'])) {
     errorResponse($httpCode, $result['error'], $result['message']);
 }
 
+logInfo('매주 번호 생성 완료', $result, 'api');
 jsonResponse($result);

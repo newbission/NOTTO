@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/config/database.php';
 require_once __DIR__ . '/../src/helpers/response.php';
+require_once __DIR__ . '/../src/helpers/logger.php';
 require_once __DIR__ . '/../src/models/Round.php';
 
 requireMethod('GET');
@@ -18,6 +19,8 @@ requireAdminToken();
 $roundNumber = (int) ($_GET['round_number'] ?? 0);
 $numbersStr = $_GET['numbers'] ?? '';
 $bonus = (int) ($_GET['bonus'] ?? 0);
+
+logInfo('당첨번호 입력 API 호출', ['round_number' => $roundNumber, 'numbers' => $numbersStr, 'bonus' => $bonus], 'api');
 
 // 검증
 if ($roundNumber <= 0) {
@@ -53,6 +56,13 @@ $round->setWinningNumbers($roundNumber, $numbers, $bonus);
 
 // matched_count 계산
 $updated = $round->calculateMatches((int) $existingRound['id']);
+
+logInfo('당첨번호 입력 완료', [
+    'round_number' => $roundNumber,
+    'numbers' => $numbers,
+    'bonus' => $bonus,
+    'matched_updated' => $updated,
+], 'api');
 
 jsonResponse([
     'round_number' => $roundNumber,
