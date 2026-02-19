@@ -1,0 +1,10 @@
+.git
+.agent
+.bkit
+docs
+logs
+*.md
+.env
+.env.local
+.env.testing
+.DS_Store
