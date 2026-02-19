@@ -32,8 +32,10 @@ function loadEnv(string $path): void
             $value = trim($value);
 
             // 따옴표 제거
-            if ((str_starts_with($value, '"') && str_ends_with($value, '"')) ||
-                (str_starts_with($value, "'") && str_ends_with($value, "'"))) {
+            if (
+                (str_starts_with($value, '"') && str_ends_with($value, '"')) ||
+                (str_starts_with($value, "'") && str_ends_with($value, "'"))
+            ) {
                 $value = substr($value, 1, -1);
             }
 
@@ -80,6 +82,9 @@ function getDatabase(): PDO
             PDO::ATTR_EMULATE_PREPARES => false,
         ]);
     } catch (PDOException $e) {
+        @require_once __DIR__ . '/../helpers/logger.php';
+        logError('DB 연결 실패', ['error' => $e->getMessage()], 'db');
+
         if (env('APP_DEBUG') === 'true') {
             die('DB 연결 실패: ' . $e->getMessage());
         }

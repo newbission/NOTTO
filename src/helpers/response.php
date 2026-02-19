@@ -8,6 +8,8 @@ declare(strict_types=1);
  * 모든 API에서 사용하는 일관된 JSON 응답 포맷
  */
 
+require_once __DIR__ . '/logger.php';
+
 /**
  * 성공 응답
  */
@@ -37,6 +39,13 @@ function errorResponse(int $httpCode, string $code, string $message): never
     http_response_code($httpCode);
     header('Content-Type: application/json; charset=utf-8');
 
+    logWarn("API 에러 응답", [
+        'http_code' => $httpCode,
+        'error_code' => $code,
+        'message' => $message,
+        'uri' => $_SERVER['REQUEST_URI'] ?? '',
+    ], 'api');
+
     echo json_encode([
         'success' => false,
         'error' => [
@@ -65,6 +74,10 @@ function requireAdminToken(): void
     $token = $_GET['token'] ?? $_POST['token'] ?? '';
 
     if (empty($token) || $token !== env('ADMIN_TOKEN')) {
+        logError('관리자 토큰 인증 실패', [
+            'uri' => $_SERVER['REQUEST_URI'] ?? '',
+            'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+        ], 'security');
         errorResponse(401, 'INVALID_TOKEN', '유효하지 않은 관리자 토큰입니다.');
     }
 }

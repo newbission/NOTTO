@@ -14,7 +14,9 @@ phpunit.xml
 
 # --- 로그 및 캐시 ---
 *.log
-storage/logs/B
+logs/
+!logs/.gitkeep
+storage/logs/
 storage/framework/views/
 storage/framework/cache/
 bootstrap/cache/

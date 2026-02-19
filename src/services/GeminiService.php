@@ -10,6 +10,7 @@ declare(strict_types=1);
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../helpers/logger.php';
 
 class GeminiService
 {
@@ -32,6 +33,8 @@ class GeminiService
      */
     public function generateNumbers(string $promptTemplate, array $names): array
     {
+        logInfo('Gemini API 호출 시작', ['names_count' => count($names), 'model' => $this->model], 'gemini');
+
         $namesJson = json_encode($names, JSON_UNESCAPED_UNICODE);
         $prompt = str_replace('{names}', $namesJson, $promptTemplate);
 
@@ -89,14 +92,14 @@ class GeminiService
         $result = @file_get_contents($url, false, $context);
 
         if ($result === false) {
-            error_log("[GeminiService] API 호출 실패: $url");
+            logError('Gemini API 호출 실패', ['url' => preg_replace('/key=[^&]+/', 'key=***', $url)], 'gemini');
             return null;
         }
 
         $decoded = json_decode($result, true);
 
         if (!isset($decoded['candidates'][0]['content']['parts'][0]['text'])) {
-            error_log("[GeminiService] 응답 파싱 실패: " . substr($result, 0, 500));
+            logError('Gemini 응답 파싱 실패', ['response' => substr($result, 0, 300)], 'gemini');
             return null;
         }
 
@@ -104,10 +107,11 @@ class GeminiService
         $parsed = json_decode($text, true);
 
         if (!is_array($parsed)) {
-            error_log("[GeminiService] JSON 파싱 실패: " . substr($text, 0, 500));
+            logError('Gemini JSON 파싱 실패', ['text' => substr($text, 0, 300)], 'gemini');
             return null;
         }
 
+        logInfo('Gemini API 호출 성공', ['results_count' => count($parsed)], 'gemini');
         return $parsed;
     }
 

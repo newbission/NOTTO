@@ -14,6 +14,7 @@ require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Round.php';
 require_once __DIR__ . '/../models/Prompt.php';
 require_once __DIR__ . '/GeminiService.php';
+require_once __DIR__ . '/../helpers/logger.php';
 
 class DrawService
 {
@@ -45,8 +46,11 @@ class DrawService
 
         $pendingUsers = $this->user->getPending();
         if (empty($pendingUsers)) {
+            logInfo('대기열 처리: pending 사용자 없음', [], 'draw');
             return ['processed' => 0, 'failed' => 0, 'elapsed_seconds' => 0];
         }
+
+        logInfo('대기열 처리 시작', ['pending_count' => count($pendingUsers)], 'draw');
 
         // fixed 프롬프트 조회
         $activePrompt = $this->prompt->getActive('fixed');
@@ -78,7 +82,7 @@ class DrawService
                     $processed++;
                 } else {
                     $failed++;
-                    error_log("[DrawService] 고유번호 생성 실패: {$pendingUser['name']}");
+                    logError('고유번호 생성 실패', ['name' => $pendingUser['name']], 'draw');
                 }
             }
 
@@ -89,6 +93,7 @@ class DrawService
         }
 
         $elapsed = round(microtime(true) - $startTime, 1);
+        logInfo('대기열 처리 완료', ['processed' => $processed, 'failed' => $failed, 'elapsed' => $elapsed], 'draw');
 
         return [
             'processed' => $processed,
@@ -103,7 +108,7 @@ class DrawService
     public function drawWeekly(int $roundNumber, string $drawDate): array
     {
         $startTime = microtime(true);
-
+        logInfo('주간 번호 생성 시작', ['round' => $roundNumber, 'date' => $drawDate], 'draw');
         // 회차 중복 체크
         $existingRound = $this->round->findByRoundNumber($roundNumber);
         if ($existingRound) {
@@ -158,7 +163,7 @@ class DrawService
                     $generated++;
                 } else {
                     $failed++;
-                    error_log("[DrawService] 주간번호 생성 실패: {$activeUser['name']}");
+                    logError('주간번호 생성 실패', ['name' => $activeUser['name'], 'round' => $roundNumber], 'draw');
                 }
             }
 
@@ -169,6 +174,13 @@ class DrawService
         }
 
         $elapsed = round(microtime(true) - $startTime, 1);
+        logInfo('주간 번호 생성 완료', [
+            'round' => $roundNumber,
+            'total' => count($activeUsers),
+            'generated' => $generated,
+            'failed' => $failed,
+            'elapsed' => $elapsed
+        ], 'draw');
 
         return [
             'round_id' => $roundId,
