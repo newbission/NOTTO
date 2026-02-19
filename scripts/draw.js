@@ -1,7 +1,7 @@
 const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
 
 // Configuration
-const API_URL = process.env.API_URL || "https://notto.dothome.co.kr"; // Default or Env
+const API_URL = process.env.API_URL || "http://newbission.dothome.co.kr/notto"; // Default or Env
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const IS_MOCK = process.env.MOCK === 'true';
 
