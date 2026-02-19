@@ -1,0 +1,315 @@
+/**
+ * NOTTO Frontend Application
+ *
+ * - 검색 (부분 일치)
+ * - 인피니티 스크롤 (전체 목록)
+ * - 정렬 (4종)
+ * - 이름 등록 (AJAX)
+ */
+
+(() => {
+    'use strict';
+
+    // ─── Config ───
+    const API_BASE = '../api';
+    const PER_PAGE = 20;
+
+    // ─── DOM Elements ───
+    const hero = document.getElementById('hero');
+    const searchForm = document.getElementById('search-form');
+    const searchInput = document.getElementById('search-input');
+    const sortControls = document.getElementById('sort-controls');
+    const registerPrompt = document.getElementById('register-prompt');
+    const registerText = document.getElementById('register-text');
+    const registerBtn = document.getElementById('register-btn');
+    const resultsGrid = document.getElementById('results-grid');
+    const resultsStatus = document.getElementById('results-status');
+    const loader = document.getElementById('loader');
+    const sentinel = document.getElementById('sentinel');
+    const toast = document.getElementById('toast');
+
+    // ─── State ───
+    let currentMode = 'browse'; // 'browse' | 'search'
+    let currentSort = 'newest';
+    let currentQuery = '';
+    let currentPage = 1;
+    let isLoading = false;
+    let hasMore = true;
+    let isHeroCompact = false;
+    let searchName = ''; // 현재 검색한 이름 (등록용)
+
+    // ─── Init ───
+    function init() {
+        setupEventListeners();
+        setupInfiniteScroll();
+        loadUsers();
+    }
+
+    // ─── Event Listeners ───
+    function setupEventListeners() {
+        searchForm.addEventListener('submit', handleSearch);
+
+        sortControls.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.addEventListener('click', () => handleSort(btn.dataset.sort));
+        });
+
+        registerBtn.addEventListener('click', handleRegister);
+    }
+
+    // ─── Search ───
+    async function handleSearch(e) {
+        e.preventDefault();
+        const query = searchInput.value.trim();
+
+        if (query === '') {
+            // 빈 검색 = 전체 목록으로 복귀
+            currentMode = 'browse';
+            currentQuery = '';
+            resetAndLoad();
+            return;
+        }
+
+        currentMode = 'search';
+        currentQuery = query;
+        searchName = query;
+        resetAndLoad();
+    }
+
+    // ─── Sort ───
+    function handleSort(sort) {
+        currentSort = sort;
+
+        sortControls.querySelectorAll('.sort-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.sort === sort);
+        });
+
+        resetAndLoad();
+    }
+
+    // ─── Reset & Reload ───
+    function resetAndLoad() {
+        currentPage = 1;
+        hasMore = true;
+        resultsGrid.innerHTML = '';
+        registerPrompt.style.display = 'none';
+        compactHero();
+        showSortControls();
+        loadUsers();
+    }
+
+    // ─── Load Users ───
+    async function loadUsers() {
+        if (isLoading || !hasMore) return;
+        isLoading = true;
+        showLoader(true);
+
+        try {
+            let url;
+            if (currentMode === 'search') {
+                url = `${API_BASE}/search.php?q=${encodeURIComponent(currentQuery)}&page=${currentPage}&per_page=${PER_PAGE}`;
+            } else {
+                url = `${API_BASE}/users.php?page=${currentPage}&per_page=${PER_PAGE}&sort=${currentSort}`;
+            }
+
+            const response = await fetch(url);
+            const json = await response.json();
+
+            if (!json.success) {
+                showToast(json.error?.message || '데이터를 불러올 수 없습니다.', 'error');
+                return;
+            }
+
+            const users = json.data;
+            const meta = json.meta;
+
+            if (users.length === 0 && currentPage === 1) {
+                if (currentMode === 'search') {
+                    showRegisterPrompt(currentQuery);
+                } else {
+                    resultsStatus.textContent = '아직 등록된 이름이 없습니다.';
+                }
+                hasMore = false;
+                return;
+            }
+
+            resultsStatus.textContent = '';
+            renderUsers(users, json.meta);
+
+            hasMore = meta.has_more ?? (currentPage * PER_PAGE < meta.total);
+            currentPage++;
+
+            // 검색 모드에서 결과가 있으면 이름 등록 프롬프트 숨김
+            if (currentMode === 'search') {
+                // 정확히 일치하는 이름이 없으면 등록 프롬프트 표시
+                const exactMatch = users.some(u =>
+                    u.name === currentQuery && u.status !== 'deleted'
+                );
+                if (!exactMatch) {
+                    showRegisterPrompt(currentQuery);
+                }
+            }
+
+        } catch (err) {
+            showToast('서버와 연결할 수 없습니다.', 'error');
+            console.error(err);
+        } finally {
+            isLoading = false;
+            showLoader(false);
+        }
+    }
+
+    // ─── Render Users ───
+    function renderUsers(users) {
+        users.forEach(user => {
+            const card = createUserCard(user);
+            resultsGrid.appendChild(card);
+        });
+    }
+
+    function createUserCard(user) {
+        const card = document.createElement('div');
+        card.className = `user-card ${user.status === 'pending' ? 'user-card--pending' : ''}`;
+
+        const badgeClass = user.status === 'active'
+            ? 'user-card__badge--active'
+            : 'user-card__badge--pending';
+        const badgeText = user.status === 'active' ? '활성' : '대기중';
+
+        let numbersHTML;
+        if (user.status === 'pending' || !user.weekly_numbers) {
+            numbersHTML = `<div class="user-card__numbers">번호 생성 대기중...</div>`;
+        } else {
+            const winningNumbers = user.winning_numbers || [];
+            numbersHTML = `<div class="user-card__numbers">
+                ${user.weekly_numbers.map(n => {
+                const isMatched = winningNumbers.includes(n);
+                return `<span class="ball ${getBallClass(n)} ${isMatched ? 'ball--matched' : ''}">${n}</span>`;
+            }).join('')}
+            </div>`;
+        }
+
+        const metaHTML = [];
+        if (user.round_number) metaHTML.push(`${user.round_number}회차`);
+        if (user.matched_count !== null && user.matched_count !== undefined) {
+            metaHTML.push(`적중 ${user.matched_count}개`);
+        }
+
+        card.innerHTML = `
+            <div class="user-card__header">
+                <span class="user-card__name">${escapeHtml(user.name)}</span>
+                <span class="user-card__badge ${badgeClass}">${badgeText}</span>
+            </div>
+            ${numbersHTML}
+            ${metaHTML.length > 0 ? `<div class="user-card__meta">${metaHTML.join(' · ')}</div>` : ''}
+        `;
+
+        return card;
+    }
+
+    // ─── Register ───
+    async function handleRegister() {
+        if (!searchName) return;
+
+        registerBtn.disabled = true;
+        registerBtn.textContent = '등록 중...';
+
+        try {
+            const formData = new FormData();
+            formData.append('name', searchName);
+
+            const response = await fetch(`${API_BASE}/register.php`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            const json = await response.json();
+
+            if (!json.success) {
+                showToast(json.error?.message || '등록에 실패했습니다.', 'error');
+                registerBtn.disabled = false;
+                registerBtn.textContent = '등록하기';
+                return;
+            }
+
+            showToast(`"${searchName}" 등록 완료! 곧 번호가 생성됩니다.`, 'success');
+            registerPrompt.style.display = 'none';
+
+            // 등록된 카드를 목록 맨 위에 추가
+            const newCard = createUserCard({
+                id: json.data.id,
+                name: json.data.name,
+                status: 'pending',
+                weekly_numbers: null,
+                round_number: null,
+                matched_count: null,
+            });
+            resultsGrid.prepend(newCard);
+
+        } catch (err) {
+            showToast('서버와 연결할 수 없습니다.', 'error');
+            registerBtn.disabled = false;
+            registerBtn.textContent = '등록하기';
+        }
+    }
+
+    // ─── Infinite Scroll ───
+    function setupInfiniteScroll() {
+        const observer = new IntersectionObserver(entries => {
+            if (entries[0].isIntersecting && !isLoading && hasMore) {
+                loadUsers();
+            }
+        }, { threshold: 0.1 });
+
+        observer.observe(sentinel);
+    }
+
+    // ─── UI Helpers ───
+    function compactHero() {
+        if (!isHeroCompact) {
+            hero.classList.add('compact');
+            isHeroCompact = true;
+        }
+    }
+
+    function showSortControls() {
+        sortControls.style.display = 'flex';
+    }
+
+    function showLoader(visible) {
+        loader.classList.toggle('loader--hidden', !visible);
+    }
+
+    function showRegisterPrompt(name) {
+        registerText.innerHTML = `<strong>"${escapeHtml(name)}"</strong>은(는) 아직 등록되지 않은 이름입니다.`;
+        registerBtn.disabled = false;
+        registerBtn.textContent = '등록하기';
+        registerPrompt.style.display = 'block';
+    }
+
+    function showToast(message, type = 'info') {
+        toast.textContent = message;
+        toast.className = `toast show toast--${type}`;
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    // ─── Utility ───
+    function getBallClass(n) {
+        if (n <= 10) return 'ball--1-10';
+        if (n <= 20) return 'ball--11-20';
+        if (n <= 30) return 'ball--21-30';
+        if (n <= 40) return 'ball--31-40';
+        return 'ball--41-45';
+    }
+
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ─── Start ───
+    document.addEventListener('DOMContentLoaded', init);
+})();
