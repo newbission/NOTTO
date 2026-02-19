@@ -31,6 +31,11 @@ function loadEnv(string $path): void
             $key = trim($key);
             $value = trim($value);
 
+            // 시스템 환경변수(Docker 등)가 이미 설정된 경우 스킵
+            if (getenv($key) !== false) {
+                continue;
+            }
+
             // 따옴표 제거
             if (
                 (str_starts_with($value, '"') && str_ends_with($value, '"')) ||

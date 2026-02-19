@@ -10,10 +10,12 @@ declare(strict_types=1);
  */
 
 /** 로그 레벨 상수 */
-const LOG_INFO = 'INFO';
-const LOG_WARN = 'WARN';
-const LOG_ERROR = 'ERROR';
-const LOG_DEBUG = 'DEBUG';
+if (!defined('LOG_INFO')) {
+    define('LOG_INFO', 'INFO');
+    define('LOG_WARN', 'WARN');
+    define('LOG_ERROR', 'ERROR');
+    define('LOG_DEBUG', 'DEBUG');
+}
 
 /**
  * 로그 디렉토리 경로 (프로젝트 루트 기준)
