@@ -5,96 +5,67 @@ declare(strict_types=1);
 /**
  * RoundHelper
  *
- * 로또 회차 계산 유틸리티
- * 앵커: 1212회 = 2026-02-21 (토요일 추첨)
- * 규칙: 일요일부터 다음 회차 시작
+ * 로또 회차 관리 유틸리티 (DB 기반)
+ * rounds 테이블에서 최신 회차를 조회하여 현재 회차 정보를 제공
  */
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/logger.php';
 
 class RoundHelper
 {
-    /** 앵커 회차 번호 */
-    const ANCHOR_ROUND = 1212;
-
-    /** 앵커 추첨일 (토요일) */
-    const ANCHOR_DATE = '2026-02-21';
-
     /**
-     * 주어진 날짜 기준 현재 회차 번호 계산
-     *
-     * 로또는 매주 토요일 추첨, 일요일부터 다음 회차.
-     * - 2026-02-21 (토) → 1212회
-     * - 2026-02-22 (일) → 1213회
-     * - 2026-02-28 (토) → 1213회
-     * - 2026-03-01 (일) → 1214회
+     * 현재 (최신) 회차 정보 조회
+     * rounds 테이블에서 가장 큰 round_number를 가진 레코드 반환
      */
-    public static function getCurrentRound(?string $date = null): int
+    public static function getCurrentRoundInfo(): ?array
     {
-        $now = $date ? new DateTime($date) : new DateTime('now', new DateTimeZone('Asia/Seoul'));
-        $anchor = new DateTime(self::ANCHOR_DATE, new DateTimeZone('Asia/Seoul'));
+        $pdo = getDatabase();
+        $stmt = $pdo->query(
+            "SELECT round_number, draw_date, winning_numbers, bonus_number
+             FROM rounds ORDER BY round_number DESC LIMIT 1"
+        );
+        $result = $stmt->fetch();
 
-        // 각 날짜를 해당 주의 토요일(추첨일)로 정규화
-        // PHP: 6=Saturday, 0=Sunday
-        $nowDay = (int) $now->format('w'); // 0(일)~6(토)
-        $anchorDay = (int) $anchor->format('w');
-
-        // 현재 날짜가 속한 회차의 토요일 계산
-        // 일(0)→이전 토요일 = -1, 월(1)→다음 토요일 = +5, ..., 토(6)→ 0
-        if ($nowDay === 0) {
-            // 일요일이면 이미 다음 회차 → 다음 토요일 기준
-            $nowSaturday = (clone $now)->modify('+6 days');
-        } else {
-            // 월~토: 이번 주 토요일 기준
-            $daysUntilSat = 6 - $nowDay;
-            $nowSaturday = (clone $now)->modify("+{$daysUntilSat} days");
+        if (!$result) {
+            logWarn('회차 정보 없음 — rounds 테이블이 비어있음', [], 'round');
+            return null;
         }
 
-        $anchorSaturday = clone $anchor; // 이미 토요일
-
-        $diff = $anchorSaturday->diff($nowSaturday);
-        $weeks = (int) ($diff->days / 7);
-
-        if ($nowSaturday < $anchorSaturday) {
-            $weeks = -$weeks;
-        }
-
-        return self::ANCHOR_ROUND + $weeks;
-    }
-
-    /**
-     * 회차 번호 → 추첨일(토요일) 반환
-     */
-    public static function getDrawDate(?int $round = null): string
-    {
-        $round = $round ?? self::getCurrentRound();
-        $weeksDiff = $round - self::ANCHOR_ROUND;
-
-        $date = new DateTime(self::ANCHOR_DATE, new DateTimeZone('Asia/Seoul'));
-        if ($weeksDiff >= 0) {
-            $date->modify("+{$weeksDiff} weeks");
-        } else {
-            $absDiff = abs($weeksDiff);
-            $date->modify("-{$absDiff} weeks");
-        }
-
-        return $date->format('Y-m-d');
-    }
-
-    /**
-     * 현재 회차 종합 정보 반환
-     */
-    public static function getCurrentRoundInfo(): array
-    {
         $now = new DateTime('now', new DateTimeZone('Asia/Seoul'));
-        $currentRound = self::getCurrentRound();
-        $drawDate = self::getDrawDate($currentRound);
-        $drawDateTime = new DateTime($drawDate, new DateTimeZone('Asia/Seoul'));
-
+        $drawDate = $result['draw_date'];
         $isDrawDay = $now->format('Y-m-d') === $drawDate;
+        $hasDrawn = $result['winning_numbers'] !== null;
 
         return [
-            'round_number' => $currentRound,
+            'round_number' => (int) $result['round_number'],
             'draw_date' => $drawDate,
             'is_draw_day' => $isDrawDay,
+            'has_drawn' => $hasDrawn,
+        ];
+    }
+
+    /**
+     * 다음 회차 생성 (현재 최신 회차 + 1, 추첨일 + 7일)
+     * drawWeekly에서 호출 시 사용
+     */
+    public static function getNextRound(): array
+    {
+        $current = self::getCurrentRoundInfo();
+
+        if (!$current) {
+            // rounds 테이블이 비어있으면 에러
+            logError('다음 회차 계산 불가 — 기존 회차 없음', [], 'round');
+            return ['error' => 'NO_CURRENT_ROUND'];
+        }
+
+        $nextRound = $current['round_number'] + 1;
+        $nextDate = new DateTime($current['draw_date'], new DateTimeZone('Asia/Seoul'));
+        $nextDate->modify('+7 days');
+
+        return [
+            'round_number' => $nextRound,
+            'draw_date' => $nextDate->format('Y-m-d'),
         ];
     }
 }
