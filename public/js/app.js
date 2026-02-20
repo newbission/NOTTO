@@ -329,9 +329,17 @@
 
         let numbersHTML;
         if (isRejected) {
-            numbersHTML = `<div class="user-card__numbers">사용할 수 없는 이름입니다.</div>`;
+            numbersHTML = `
+            <div class="user-card__numbers" style="flex-direction: column; gap: var(--space-sm); padding: var(--space-lg) 0;">
+                <div style="font-size: 1.1rem;">사용할 수 없는 이름입니다.</div>
+                <div style="font-size: 0.85rem; color: var(--color-error); font-weight: normal;">(사유: 추후 제공 예정)</div>
+            </div>`;
         } else if (isWaiting) {
-            numbersHTML = `<div class="user-card__numbers">번호 생성 대기중...</div>`;
+            numbersHTML = `
+            <div class="user-card__numbers" style="flex-direction: column; gap: var(--space-sm); padding: var(--space-lg) 0;">
+                <div style="font-size: 1.1rem;">이름 검토 중...</div>
+                <div style="font-size: 0.85rem; color: var(--color-text-muted); font-weight: normal;">조금만 기다려주세요! 관리자 확인 후 행운의 번호가 발급됩니다.</div>
+            </div>`;
         } else {
             const winningNumbers = user.winning_numbers || [];
             numbersHTML = `<div class="user-card__numbers">
