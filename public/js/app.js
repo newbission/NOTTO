@@ -309,14 +309,41 @@
     }
 
     function showExactMatchPrompt(user) {
-        const cardHtml = createUserCard(user).outerHTML;
+        const isWaiting = user.status === 'pending' || (user.status === 'active' && !user.weekly_numbers);
+        const isRejected = user.status === 'rejected';
+
+        let badgeClass = 'user-card__badge--pending';
+        let badgeText = '대기중';
+
+        if (user.status === 'active') {
+            badgeClass = 'user-card__badge--active';
+            badgeText = '활성';
+        } else if (isRejected) {
+            badgeClass = 'user-card__badge--rejected';
+            badgeText = '반려';
+        }
+
+        let numbersHTML;
+        if (isRejected) {
+            numbersHTML = `<div class="user-card__numbers" style="justify-content: center;">사용할 수 없는 이름입니다.</div>`;
+        } else if (isWaiting) {
+            numbersHTML = `<div class="user-card__numbers" style="justify-content: center;">번호 생성 대기중...</div>`;
+        } else {
+            const winningNumbers = user.winning_numbers || [];
+            numbersHTML = `<div class="user-card__numbers" style="justify-content: center; margin-top: var(--space-md);">
+                ${user.weekly_numbers.map(n => {
+                const isMatched = winningNumbers.includes(n);
+                return `<span class="ball ball--large ${getBallClass(n)} ${isMatched ? 'ball--matched' : ''}">${n}</span>`;
+            }).join('')}
+            </div>`;
+        }
+
         registerPrompt.innerHTML = `
-            <p class="register-prompt__text" style="margin-bottom: var(--space-md);">
+            <p class="register-prompt__text" style="font-size: 1.1rem;">
                 <strong>"${escapeHtml(user.name)}"</strong> 검색 결과입니다.
+                <span class="user-card__badge ${badgeClass}" style="margin-left: 8px; vertical-align: middle;">${badgeText}</span>
             </p>
-            <div style="max-width: 400px; margin: 0 auto; text-align: left;">
-                ${cardHtml}
-            </div>
+            ${numbersHTML}
         `;
         registerPrompt.style.display = 'block';
     }
