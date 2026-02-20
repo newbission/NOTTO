@@ -103,10 +103,9 @@
                     // 결과 표시
                     nameEl.textContent = data.name;
 
-                    numbersEl.innerHTML = data.fixed_numbers.map(n => {
-                        const cls = n <= 10 ? 'ball--1-10' : n <= 20 ? 'ball--11-20' : n <= 30 ? 'ball--21-30' : n <= 40 ? 'ball--31-40' : 'ball--41-45';
-                        return `<span class="ball ball--large ${cls}">${n}</span>`;
-                    }).join('');
+                    numbersEl.innerHTML = data.fixed_numbers.map(n =>
+                        `<span class="ball ball--large ball--fixed">${n}</span>`
+                    ).join('');
 
                     if (data.created_at) {
                         const date = new Date(data.created_at);
