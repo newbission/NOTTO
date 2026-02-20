@@ -145,6 +145,9 @@
             resultsStatus.textContent = '';
             renderUsers(users, json.meta);
 
+            hasMore = meta.has_more ?? (currentPage * PER_PAGE < meta.total);
+            currentPage++;
+
         } catch (err) {
             showToast('서버와 연결할 수 없습니다.', 'error');
             console.error(err);
