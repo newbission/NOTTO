@@ -310,7 +310,8 @@
     }
 
     function showExactMatchPrompt(user) {
-        const isWaiting = user.status === 'pending' || (user.status === 'active' && !user.weekly_numbers);
+        const isPending = user.status === 'pending';
+        const isGenerating = user.status === 'active' && (!user.weekly_numbers || user.weekly_numbers.length === 0);
         const isRejected = user.status === 'rejected';
 
         let badgeClass = 'user-card__badge--pending';
@@ -334,11 +335,17 @@
                 <div style="font-size: 1.1rem;">사용할 수 없는 이름입니다.</div>
                 <div style="font-size: 0.85rem; color: var(--color-error); font-weight: normal;">(사유: 추후 제공 예정)</div>
             </div>`;
-        } else if (isWaiting) {
+        } else if (isGenerating) {
             numbersHTML = `
             <div class="user-card__numbers" style="flex-direction: column; gap: var(--space-sm); padding: var(--space-lg) 0;">
-                <div style="font-size: 1.1rem;">이름 검토 중...</div>
-                <div style="font-size: 0.85rem; color: var(--color-text-muted); font-weight: normal;">조금만 기다려주세요! 관리자 확인 후 행운의 번호가 발급됩니다.</div>
+                <div style="font-size: 1.1rem;">행운의 번호 발급 대기 중...</div>
+                <div style="font-size: 0.85rem; color: var(--color-text-muted); font-weight: normal;">이름 확인이 완료되었습니다. 곧 이번 주 행운의 번호가 생성됩니다!</div>
+            </div>`;
+        } else if (isPending) {
+            numbersHTML = `
+            <div class="user-card__numbers" style="flex-direction: column; gap: var(--space-sm); padding: var(--space-lg) 0;">
+                <div style="font-size: 1.1rem;">등록 대기 중...</div>
+                <div style="font-size: 0.85rem; color: var(--color-text-muted); font-weight: normal;">조금만 기다려주시면 곧 등록 처리가 완료됩니다!</div>
             </div>`;
         } else {
             const winningNumbers = user.winning_numbers || [];
