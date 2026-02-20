@@ -135,6 +135,7 @@
 
             if (!json.success) {
                 showToast(json.error?.message || '데이터를 불러올 수 없습니다.', 'error');
+                hasMore = false;
                 return;
             }
 
@@ -172,6 +173,7 @@
         } catch (err) {
             showToast('서버와 연결할 수 없습니다.', 'error');
             console.error(err);
+            hasMore = false; // 에러 시 무한 스크롤 중단
         } finally {
             isLoading = false;
             showLoader(false);

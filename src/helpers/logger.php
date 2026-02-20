@@ -5,16 +5,25 @@ declare(strict_types=1);
 /**
  * Logger Helper
  *
- * 날짜별 로그 파일로 기록합니다.
- * 경로: logs/{channel}_{YYYY-MM-DD}.log
+ * 날짜별 폴더로 로그를 정리합니다.
+ * 경로: logs/{YYYY-MM-DD}/{channel}.log
  */
 
 /**
- * 로그 디렉토리 경로 (프로젝트 루트 기준)
+ * 로그 베이스 디렉토리 경로 (프로젝트 루트 기준)
  */
-function getLogDir(): string
+function getLogBaseDir(): string
 {
-    $dir = __DIR__ . '/../../logs';
+    return __DIR__ . '/../../logs';
+}
+
+/**
+ * 날짜별 로그 디렉토리 경로를 반환하고, 없으면 생성합니다.
+ */
+function getLogDir(?string $date = null): string
+{
+    $date = $date ?? date('Y-m-d');
+    $dir = getLogBaseDir() . '/' . $date;
 
     if (!is_dir($dir)) {
         @mkdir($dir, 0755, true);
@@ -29,14 +38,13 @@ function getLogDir(): string
  * @param string $level  로그 레벨 (INFO, WARN, ERROR, DEBUG)
  * @param string $message 메시지
  * @param array  $context 추가 컨텍스트 데이터
- * @param string $channel 채널명 (파일 접두사, 기본: 'app')
+ * @param string $channel 채널명 (파일명, 기본: 'app')
  */
 function writeLog(string $level, string $message, array $context = [], string $channel = 'app'): void
 {
     $logDir = getLogDir();
-    $date = date('Y-m-d');
     $time = date('Y-m-d H:i:s');
-    $fileName = "{$channel}_{$date}.log";
+    $fileName = "{$channel}.log";
     $filePath = "{$logDir}/{$fileName}";
 
     $logLine = "[{$time}] [{$level}] {$message}";
@@ -47,7 +55,11 @@ function writeLog(string $level, string $message, array $context = [], string $c
 
     $logLine .= PHP_EOL;
 
-    @file_put_contents($filePath, $logLine, FILE_APPEND | LOCK_EX);
+    $written = @file_put_contents($filePath, $logLine, FILE_APPEND | LOCK_EX);
+    if ($written === false) {
+        // 파일 쓰기 실패 시 PHP 내장 error_log로 폴백
+        error_log("[NOTTO][{$channel}][{$level}] {$message} " . json_encode($context, JSON_UNESCAPED_UNICODE));
+    }
 }
 
 /**

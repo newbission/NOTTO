@@ -1,0 +1,43 @@
+# NOTTO — Apache Configuration for InfinityFree
+# 보안: 민감한 디렉토리/파일 접근 차단
+
+# .env 파일 접근 차단
+<FilesMatch "^\.env">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# src/, logs/, database/, docker 관련 파일 접근 차단
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # src/ 디렉토리 차단
+    RewriteRule ^src/ - [F,L]
+
+    # logs/ 디렉토리 차단 (API 통해서만 접근)
+    RewriteRule ^logs/ - [F,L]
+
+    # database/ 디렉토리 차단
+    RewriteRule ^database/ - [F,L]
+
+    # Docker 관련 파일 차단
+    RewriteRule ^(Dockerfile|docker-compose\.yml|\.dockerignore)$ - [F,L]
+
+    # .git 디렉토리 차단
+    RewriteRule ^\.git - [F,L]
+
+    # .agent 디렉토리 차단
+    RewriteRule ^\.agent - [F,L]
+</IfModule>
+
+# UTF-8 기본 charset
+AddDefaultCharset UTF-8
+
+# PHP 에러 표시 비활성화 (production 안전)
+php_flag display_errors Off
+php_flag log_errors On
