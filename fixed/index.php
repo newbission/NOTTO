@@ -6,6 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NOTTO 고유번호 — 이름에 새겨진 운명의 번호</title>
     <meta name="description" content="당신의 이름에만 부여되는 평생 고유번호를 확인하세요. AI가 분석한 운명의 번호입니다.">
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="../public/assets/images/favicon.png">
+    <link rel="apple-touch-icon" href="../public/assets/images/favicon.png">
+    <!-- Fonts -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../public/css/style.css">

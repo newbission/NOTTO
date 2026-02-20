@@ -5,8 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NOTTO — AI가 점지해주는 이번 주 행운의 번호</title>
-    <meta name="description" content="이름을 등록하면 매주 AI가 당신만을 위한 행운의 로또 번호를 추천해줍니다. 지금 바로 등록하세요!">
-    <meta name="keywords" content="로또, AI, 번호 추천, 행운, NOTTO">
+    <meta name="description" content="이름을 등록하면 매주 Google Gemini AI가 당신만을 위한 행운의 로또 번호를 추천해줍니다.">
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="assets/images/favicon.png">
+    <link rel="apple-touch-icon" href="assets/images/favicon.png">
+    <!-- Fonts -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css" rel="stylesheet">
     <link rel="stylesheet" href="public/css/style.css?v=2">
