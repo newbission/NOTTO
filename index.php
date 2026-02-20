@@ -18,6 +18,10 @@
     <header class="hero" id="hero">
         <h1 class="hero__logo">NOTTO</h1>
         <p class="hero__tagline">AI가 점지해주는 이번 주 행운의 번호</p>
+        <div class="hero__round-badge" id="round-badge" style="display:none;">
+            <span class="round-badge__icon">🎱</span>
+            <span class="round-badge__text" id="round-text"></span>
+        </div>
 
         <form class="search-bar" id="search-form" autocomplete="off">
             <input type="text" class="search-bar__input" id="search-input" placeholder="이름을 입력하세요..." maxlength="20"

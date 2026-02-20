@@ -25,6 +25,8 @@
     const loader = document.getElementById('loader');
     const sentinel = document.getElementById('sentinel');
     const toast = document.getElementById('toast');
+    const roundBadge = document.getElementById('round-badge');
+    const roundText = document.getElementById('round-text');
 
     // ─── State ───
     let currentMode = 'browse'; // 'browse' | 'search'
@@ -40,7 +42,26 @@
     function init() {
         setupEventListeners();
         setupInfiniteScroll();
+        loadRoundInfo();
         loadUsers();
+    }
+
+    // ─── Round Info ───
+    async function loadRoundInfo() {
+        try {
+            const response = await fetch(`${API_BASE}/round.php`);
+            const json = await response.json();
+            if (json.success && json.data) {
+                const { round_number, draw_date, is_draw_day } = json.data;
+                roundText.textContent = `제 ${round_number}회`;
+                if (is_draw_day) {
+                    roundText.textContent += ' (오늘 추첨!)';
+                }
+                roundBadge.style.display = 'inline-flex';
+            }
+        } catch (err) {
+            console.error('회차 정보 로드 실패:', err);
+        }
     }
 
     // ─── Event Listeners ───
@@ -199,7 +220,7 @@
         }
 
         const metaHTML = [];
-        if (user.round_number) metaHTML.push(`${user.round_number}회차`);
+        if (user.participation_count > 0) metaHTML.push(`참여 ${user.participation_count}회`);
         if (user.matched_count !== null && user.matched_count !== undefined) {
             metaHTML.push(`적중 ${user.matched_count}개`);
         }
@@ -358,7 +379,7 @@
         }
 
         const metaHTML = [];
-        if (user.round_number) metaHTML.push(`${user.round_number}회차`);
+        if (user.participation_count > 0) metaHTML.push(`참여 ${user.participation_count}회`);
         if (user.matched_count !== null && user.matched_count !== undefined) {
             metaHTML.push(`적중 ${user.matched_count}개`);
         }

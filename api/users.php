@@ -41,6 +41,7 @@ $data = array_map(function ($row) {
             ? (int) $row['round_number'] : null,
         'matched_count' => isset($row['matched_count']) && $row['matched_count'] !== null
             ? (int) $row['matched_count'] : null,
+        'participation_count' => (int) ($row['participation_count'] ?? 0),
     ];
 }, $results);
 

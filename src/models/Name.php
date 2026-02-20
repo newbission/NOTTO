@@ -70,7 +70,8 @@ class Name
                     nr.matched_count,
                     r.round_number,
                     r.winning_numbers,
-                    r.bonus_number
+                    r.bonus_number,
+                    COALESCE(pc.participation_count, 0) AS participation_count
              FROM names n
              LEFT JOIN (
                  SELECT nr2.name_id, nr2.numbers, nr2.matched_count, nr2.round_id
@@ -78,6 +79,11 @@ class Name
                  WHERE nr2.round_id = (SELECT MAX(id) FROM rounds)
              ) nr ON n.id = nr.name_id
              LEFT JOIN rounds r ON nr.round_id = r.id
+             LEFT JOIN (
+                 SELECT name_id, COUNT(*) AS participation_count
+                 FROM name_rounds
+                 GROUP BY name_id
+             ) pc ON n.id = pc.name_id
              WHERE (n.name LIKE ? AND n.status = 'active') OR n.name = ?
              ORDER BY n.updated_at DESC, n.id DESC
              LIMIT ? OFFSET ?"
@@ -110,7 +116,8 @@ class Name
         $sql = "SELECT n.id, n.name, n.status, n.created_at, n.updated_at,
                        nr.numbers AS weekly_numbers,
                        nr.matched_count,
-                       r.round_number
+                       r.round_number,
+                       COALESCE(pc.participation_count, 0) AS participation_count
                 FROM names n
                 LEFT JOIN (
                     SELECT nr2.name_id, nr2.numbers, nr2.matched_count, nr2.round_id
@@ -118,6 +125,11 @@ class Name
                     WHERE nr2.round_id = (SELECT MAX(id) FROM rounds)
                 ) nr ON n.id = nr.name_id
                 LEFT JOIN rounds r ON nr.round_id = r.id
+                LEFT JOIN (
+                    SELECT name_id, COUNT(*) AS participation_count
+                    FROM name_rounds
+                    GROUP BY name_id
+                ) pc ON n.id = pc.name_id
                 WHERE n.status = 'active'
                 ORDER BY $orderBy
                 LIMIT ? OFFSET ?";

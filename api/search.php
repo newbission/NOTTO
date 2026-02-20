@@ -43,6 +43,7 @@ $data = array_map(function ($row) {
             ? json_decode($row['winning_numbers'], true) : null,
         'bonus_number' => $row['bonus_number'] ? (int) $row['bonus_number'] : null,
         'matched_count' => $row['matched_count'] !== null ? (int) $row['matched_count'] : null,
+        'participation_count' => (int) ($row['participation_count'] ?? 0),
     ];
 }, $results);
 
