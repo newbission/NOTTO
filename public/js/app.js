@@ -142,7 +142,7 @@
             if (currentMode === 'search') {
                 // 정확히 일치하는 이름이 없으면 등록 프롬프트 표시
                 const exactMatch = users.some(u =>
-                    u.name === currentQuery && u.status !== 'deleted'
+                    u.name === currentQuery && u.status !== 'rejected'
                 );
                 if (!exactMatch) {
                     showRegisterPrompt(currentQuery);

@@ -25,7 +25,7 @@ logInfo('이름 중복 체크 요청', ['name' => $name], 'api');
 $nameModel = new Name();
 $existing = $nameModel->findByName($name);
 
-$exists = $existing && $existing['status'] !== 'deleted';
+$exists = $existing && $existing['status'] !== 'rejected';
 logInfo('이름 중복 체크 결과', ['name' => $name, 'exists' => $exists, 'status' => $existing['status'] ?? null], 'api');
 
 jsonResponse([

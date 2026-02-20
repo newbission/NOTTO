@@ -60,7 +60,7 @@ class Name
     }
 
     /**
-     * 이름 부분 검색 (LIKE %query%) — deleted 제외
+     * 이름 부분 검색 (LIKE %query%) — rejected 제외
      */
     public function search(string $query, int $offset, int $limit): array
     {
@@ -103,7 +103,7 @@ class Name
     }
 
     /**
-     * 전체 목록 (정렬 + 페이지네이션) — deleted 제외
+     * 전체 목록 (정렬 + 페이지네이션) — rejected 제외
      */
     public function getAll(string $orderBy, int $offset, int $limit): array
     {
@@ -186,7 +186,7 @@ class Name
     {
         $stmt = $this->pdo->prepare(
             "SELECT id, name, fixed_numbers, status, created_at 
-             FROM names WHERE name = ? AND status != 'deleted'"
+             FROM names WHERE name = ? AND status != 'rejected'"
         );
         $stmt->execute([$name]);
         $result = $stmt->fetch();

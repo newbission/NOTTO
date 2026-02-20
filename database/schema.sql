@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS `schema_versions` (
 CREATE TABLE IF NOT EXISTS `names` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(80) NOT NULL COMMENT '등록 이름 (UTF-8, 최대 20자)',
-    `status` ENUM('pending','active','deleted') NOT NULL DEFAULT 'pending' COMMENT '상태',
+    `status` ENUM('pending','active','rejected') NOT NULL DEFAULT 'pending' COMMENT '상태',
     `fixed_numbers` JSON DEFAULT NULL COMMENT '고유번호 (6개, 1~45)',
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

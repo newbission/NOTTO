@@ -37,7 +37,7 @@
 CREATE TABLE IF NOT EXISTS `users` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(80) NOT NULL COMMENT '등록 이름 (UTF-8, 최대 20자)',
-    `status` ENUM('pending','active','deleted') NOT NULL DEFAULT 'pending' COMMENT '상태',
+    `status` ENUM('pending','active','rejected') NOT NULL DEFAULT 'pending' COMMENT '상태',
     `fixed_numbers` JSON DEFAULT NULL COMMENT '고유번호 (6개, 1~45)',
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -137,7 +137,7 @@ name=홍길동
 }
 ```
 
-> `status` 값: `null`(미등록) / `pending` / `active` / `deleted`
+> `status` 값: `null`(미등록) / `pending` / `active` / `rejected`
 
 ---
 
@@ -182,7 +182,7 @@ name=홍길동
 
 > - 부분 일치 검색 (`LIKE '%김가%'`)
 > - `pending` 상태도 표시 (번호는 null)
-> - `deleted` 상태는 제외
+> - `rejected` 상태는 제외
 > - 최신 회차 번호 + 당첨번호 함께 반환
 
 ---
@@ -221,7 +221,7 @@ name=홍길동
 }
 ```
 
-> - `deleted` 상태 제외
+> - `rejected` 상태 제외
 > - `pending` 상태는 포함 (번호 null)
 
 ---
@@ -700,7 +700,7 @@ htdocs/../.env                   ← 환경 변수 파일
 **검색**:
 - [ ] 부분 일치 검색 동작 (예: "김가" → "김가연", "강김가" 등)
 - [ ] pending 상태도 검색 결과에 포함 (번호 null)
-- [ ] deleted 상태는 검색 결과에서 제외
+- [ ] rejected 상태는 검색 결과에서 제외
 
 **인피니티 스크롤**:
 - [ ] 스크롤 시 다음 페이지 로드

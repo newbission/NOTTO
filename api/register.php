@@ -35,7 +35,7 @@ $nameModel = new Name();
 // 중복 체크
 $existing = $nameModel->findByName($name);
 if ($existing) {
-    if ($existing['status'] === 'deleted') {
+    if ($existing['status'] === 'rejected') {
         // 삭제된 이름 재등록 → pending으로 복원
         $nameModel->updateStatus((int) $existing['id'], 'pending');
         logInfo('삭제된 이름 재등록 (pending 복원)', ['id' => $existing['id'], 'name' => $name], 'api');

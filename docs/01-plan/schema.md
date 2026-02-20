@@ -19,7 +19,7 @@
 | 보너스번호 | bonus_number | 실제 로또 보너스 번호 |
 | 대기열 | pending | 등록 신청 후 아직 고유번호가 생성되지 않은 상태 |
 | 활성 | active | 고유번호 생성 완료 → 매주 번호 생성 대상 |
-| 삭제됨 | deleted | 관리자에 의해 제거된 이름 (soft delete) |
+| 삭제됨 | rejected | 관리자에 의해 제거된 이름 (soft delete) |
 | 프롬프트 | prompt | AI에게 전달하는 번호 생성 지시문 |
 | 배치 처리 | batch process | 매 정각 대기열 이름들을 일괄 고유번호 생성 |
 | 추첨 | draw | 매주 번호 생성 작업 |
@@ -76,7 +76,7 @@
 |------|------|---------|------|
 | `id` | INT AUTO_INCREMENT | PK | 사용자 고유 ID |
 | `name` | VARCHAR(80) | UNIQUE, NOT NULL | 등록 이름 (UTF-8, 한 글자 최대 4바이트 × 20자 = 80바이트) |
-| `status` | ENUM('pending','active','deleted') | NOT NULL, DEFAULT 'pending' | 이름 상태 |
+| `status` | ENUM('pending','active','rejected') | NOT NULL, DEFAULT 'pending' | 이름 상태 |
 | `fixed_numbers` | JSON | NULL | 고유번호 (6개, 1~45), 생성 전 NULL |
 | `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 등록일 |
 | `updated_at` | TIMESTAMP | ON UPDATE CURRENT_TIMESTAMP | 수정일 |
@@ -152,7 +152,7 @@
      │                                       │
      │                                       │ [관리자 삭제]
      │ [관리자 삭제]                          ▼
-     └──────────────────────────────────▶ deleted
+     └──────────────────────────────────▶ rejected
 ```
 
 ### 3.2 회차(Round) 생명주기
