@@ -7,8 +7,8 @@
     <title>NOTTO — AI가 점지해주는 이번 주 행운의 번호</title>
     <meta name="description" content="이름을 등록하면 매주 Google Gemini AI가 당신만을 위한 행운의 로또 번호를 추천해줍니다.">
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="assets/images/favicon.png">
-    <link rel="apple-touch-icon" href="assets/images/favicon.png">
+    <link rel="icon" type="image/png" href="public/assets/images/favicon.png">
+    <link rel="apple-touch-icon" href="public/assets/images/favicon.png">
     <!-- Fonts -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css" rel="stylesheet">
