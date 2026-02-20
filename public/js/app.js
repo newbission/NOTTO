@@ -168,7 +168,8 @@
 
     function createUserCard(user) {
         const card = document.createElement('div');
-        card.className = `user-card ${user.status === 'pending' ? 'user-card--pending' : ''}`;
+        const isWaiting = user.status === 'pending' || !user.weekly_numbers;
+        card.className = `user-card ${isWaiting ? 'user-card--pending' : ''}`;
 
         const badgeClass = user.status === 'active'
             ? 'user-card__badge--active'
