@@ -21,4 +21,10 @@ date.timezone = Asia/Seoul" > /usr/local/etc/php/conf.d/custom.ini
 
 WORKDIR /var/www/html
 
+# 엔트리포인트 스크립트 복사
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 80
+
+ENTRYPOINT ["docker-entrypoint.sh"]

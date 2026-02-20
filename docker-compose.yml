@@ -10,8 +10,7 @@ services:
     env_file:
       - .env.local
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     restart: unless-stopped
 
   db:
@@ -24,14 +23,11 @@ services:
       - .env.local
     volumes:
       - notto_db_data:/var/lib/mysql
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./database/sample.sql:/docker-entrypoint-initdb.d/02-sample.sql
-      - ./database/migrations:/docker-entrypoint-initdb.d/migrations
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      interval: 3s
+      timeout: 3s
+      retries: 15
     restart: unless-stopped
 
   adminer:
