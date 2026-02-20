@@ -54,15 +54,20 @@ if ($existing) {
 $result = $nameModel->create($name);
 logInfo('이름 등록 성공', ['id' => $result['id'], 'name' => $name], 'api');
 
-// DIRECT_REGISTER=true 이면 즉시 고유번호 생성 (cron 없이 바로 처리)
+// DIRECT_REGISTER=true 이면 즉시 고유번호 + 주간번호 생성 (cron 없이 바로 처리)
 if (env('DIRECT_REGISTER') === 'true') {
     logInfo('DIRECT_REGISTER 활성 — 즉시 처리 시작', ['id' => $result['id']], 'api');
 
     require_once __DIR__ . '/../src/services/DrawService.php';
     $service = new DrawService();
-    $processResult = $service->processPending();
 
-    logInfo('DIRECT_REGISTER 처리 완료', $processResult, 'api');
+    // 1) 고유번호 생성 + active 전환
+    $processResult = $service->processPending();
+    logInfo('DIRECT_REGISTER 고유번호 처리 완료', $processResult, 'api');
+
+    // 2) 최신 회차 주간번호 생성
+    $weeklyResult = $service->generateWeeklyForName((int) $result['id'], $name);
+    logInfo('DIRECT_REGISTER 주간번호 처리 완료', $weeklyResult, 'api');
 
     // 처리 후 최신 데이터 다시 조회
     $updated = $nameModel->findByName($name);
@@ -71,7 +76,7 @@ if (env('DIRECT_REGISTER') === 'true') {
         'name' => $updated['name'],
         'status' => $updated['status'],
         'fixed_numbers' => $updated['fixed_numbers'] ?? null,
-        'message' => '등록이 완료되었습니다. 고유번호가 생성되었습니다!',
+        'message' => '등록이 완료되었습니다. 고유번호와 주간번호가 생성되었습니다!',
     ], [], 201);
 }
 

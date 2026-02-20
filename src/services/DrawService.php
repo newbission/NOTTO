@@ -214,6 +214,54 @@ class DrawService
     }
 
     /**
+     * 단일 이름에 대해 최신 회차 주간번호 생성
+     * (DIRECT_REGISTER에서 즉시 등록 시 사용)
+     */
+    public function generateWeeklyForName(int $nameId, string $name): array
+    {
+        $latestRound = $this->round->getLatest();
+        if (!$latestRound) {
+            logWarn('주간번호 생성 스킵: 회차 없음', ['name_id' => $nameId], 'draw');
+            return ['skipped' => true, 'reason' => 'NO_ROUND'];
+        }
+
+        $roundId = (int) $latestRound['id'];
+
+        // 이미 해당 회차에 번호가 있는지 확인
+        $pdo = getDatabase();
+        $stmt = $pdo->prepare("SELECT id FROM name_rounds WHERE name_id = ? AND round_id = ?");
+        $stmt->execute([$nameId, $roundId]);
+        if ($stmt->fetch()) {
+            logInfo('주간번호 이미 존재', ['name_id' => $nameId, 'round_id' => $roundId], 'draw');
+            return ['skipped' => true, 'reason' => 'ALREADY_EXISTS'];
+        }
+
+        // weekly 프롬프트 조회
+        $activePrompt = $this->prompt->getActive('weekly');
+        if (!$activePrompt) {
+            logError('활성 weekly 프롬프트 없음 (단일 생성)', [], 'draw');
+            return ['skipped' => true, 'reason' => 'NO_PROMPT'];
+        }
+
+        // Gemini API 호출 (이름 1개)
+        $results = $this->gemini->generateNumbers($activePrompt['content'], [$name]);
+        $matched = $this->findResultByName($results, $name);
+
+        if ($matched) {
+            $this->round->saveNameNumbers($nameId, $roundId, $matched['numbers']);
+            logInfo('단일 이름 주간번호 생성 성공', [
+                'name' => $name,
+                'round' => $latestRound['round_number'],
+                'numbers' => $matched['numbers'],
+            ], 'draw');
+            return ['generated' => true, 'numbers' => $matched['numbers']];
+        }
+
+        logError('단일 이름 주간번호 생성 실패', ['name' => $name], 'draw');
+        return ['skipped' => true, 'reason' => 'GEMINI_FAILED'];
+    }
+
+    /**
      * Gemini 응답에서 이름으로 결과 찾기
      */
     private function findResultByName(array $results, string $name): ?array
