@@ -20,9 +20,6 @@
     const searchInput = document.getElementById('search-input');
     const sortControls = document.getElementById('sort-controls');
     const registerPrompt = document.getElementById('register-prompt');
-    const registerText = document.getElementById('register-text');
-    const registerBtn = document.getElementById('register-btn');
-    const resultsGrid = document.getElementById('results-grid');
     const resultsStatus = document.getElementById('results-status');
     const loader = document.getElementById('loader');
     const sentinel = document.getElementById('sentinel');
@@ -53,7 +50,7 @@
             btn.addEventListener('click', () => handleSort(btn.dataset.sort));
         });
 
-        registerBtn.addEventListener('click', handleRegister);
+        // registerBtn is now dynamic, we handle its listener in showRegisterPrompt
     }
 
     // ─── Search ───
@@ -132,22 +129,20 @@
                 return;
             }
 
-            resultsStatus.textContent = '';
-            renderUsers(users, json.meta);
-
-            hasMore = meta.has_more ?? (currentPage * PER_PAGE < meta.total);
-            currentPage++;
-
-            // 검색 모드에서 결과가 있으면 이름 등록 프롬프트 숨김
+            // 검색 모드에서 특별 처리 (정확히 일치하는 이름)
             if (currentMode === 'search') {
-                // 정확히 일치하는 이름이 없으면 등록 프롬프트 표시
-                const exactMatch = users.some(u =>
-                    u.name === currentQuery && u.status !== 'rejected'
-                );
-                if (!exactMatch) {
+                const exactMatchIndex = users.findIndex(u => u.name === currentQuery);
+
+                if (exactMatchIndex !== -1) {
+                    const exactMatch = users.splice(exactMatchIndex, 1)[0];
+                    showExactMatchPrompt(exactMatch);
+                } else {
                     showRegisterPrompt(currentQuery);
                 }
             }
+
+            resultsStatus.textContent = '';
+            renderUsers(users, json.meta);
 
         } catch (err) {
             showToast('서버와 연결할 수 없습니다.', 'error');
@@ -221,8 +216,11 @@
     async function handleRegister() {
         if (!searchName) return;
 
-        registerBtn.disabled = true;
-        registerBtn.textContent = '등록 중...';
+        const btn = document.getElementById('register-btn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '등록 중...';
+        }
 
         try {
             const formData = new FormData();
@@ -237,29 +235,32 @@
 
             if (!json.success) {
                 showToast(json.error?.message || '등록에 실패했습니다.', 'error');
-                registerBtn.disabled = false;
-                registerBtn.textContent = '등록하기';
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '등록하기';
+                }
                 return;
             }
 
             showToast(`"${searchName}" 등록 완료! 곧 번호가 생성됩니다.`, 'success');
-            registerPrompt.style.display = 'none';
 
-            // 등록된 카드를 목록 맨 위에 추가
-            const newCard = createUserCard({
+            // 등록 완료 시 방금 등록한 카드를 프롬프트 영역에 그대로 띄워주기
+            const newCardUser = {
                 id: json.data.id,
                 name: json.data.name,
                 status: 'pending',
                 weekly_numbers: null,
                 round_number: null,
                 matched_count: null,
-            });
-            resultsGrid.prepend(newCard);
+            };
+            showExactMatchPrompt(newCardUser);
 
         } catch (err) {
             showToast('서버와 연결할 수 없습니다.', 'error');
-            registerBtn.disabled = false;
-            registerBtn.textContent = '등록하기';
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '등록하기';
+            }
         }
     }
 
@@ -291,9 +292,28 @@
     }
 
     function showRegisterPrompt(name) {
-        registerText.innerHTML = `<strong>"${escapeHtml(name)}"</strong>은(는) 아직 등록되지 않은 이름입니다.`;
-        registerBtn.disabled = false;
-        registerBtn.textContent = '등록하기';
+        registerPrompt.innerHTML = `
+            <p class="register-prompt__text" id="register-text">
+                <strong>"${escapeHtml(name)}"</strong>은(는) 아직 등록되지 않은 이름입니다.
+            </p>
+            <button class="btn btn--primary" id="register-btn">등록하기</button>
+        `;
+
+        // 다시 이벤트 리스너 연결 (innerHTML로 덮어썼으므로)
+        document.getElementById('register-btn').addEventListener('click', handleRegister);
+        registerPrompt.style.display = 'block';
+    }
+
+    function showExactMatchPrompt(user) {
+        const cardHtml = createUserCard(user).outerHTML;
+        registerPrompt.innerHTML = `
+            <p class="register-prompt__text" style="margin-bottom: var(--space-md);">
+                <strong>"${escapeHtml(user.name)}"</strong> 검색 결과입니다.
+            </p>
+            <div style="max-width: 400px; margin: 0 auto; text-align: left;">
+                ${cardHtml}
+            </div>
+        `;
         registerPrompt.style.display = 'block';
     }
 
