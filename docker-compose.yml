@@ -7,16 +7,8 @@ services:
     volumes:
       - .:/var/www/html
       - ./logs:/var/www/html/logs
-    environment:
-      - DB_HOST=db
-      - DB_NAME=notto
-      - DB_USER=notto
-      - DB_PASS=notto_pass
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-your_gemini_api_key}
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
-      - ADMIN_TOKEN=local_dev_token_12345
-      - APP_ENV=development
-      - APP_DEBUG=true
+    env_file:
+      - .env.local
     depends_on:
       db:
         condition: service_healthy
@@ -28,11 +20,8 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --init-connect='SET NAMES utf8mb4'
     ports:
       - "3307:3306"
-    environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: notto
-      MYSQL_USER: notto
-      MYSQL_PASSWORD: notto_pass
+    env_file:
+      - .env.local
     volumes:
       - notto_db_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
