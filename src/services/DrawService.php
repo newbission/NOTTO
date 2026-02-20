@@ -118,6 +118,12 @@ class DrawService
         $startTime = microtime(true);
         logInfo('주간 번호 생성 시작', ['round' => $roundNumber, 'date' => $drawDate], 'draw');
 
+        // 대기열에 pending 이름이 있으면 먼저 처리
+        $pendingResult = $this->processPending();
+        if ($pendingResult['processed'] ?? 0 > 0) {
+            logInfo('주간 생성 전 대기열 처리 완료', $pendingResult, 'draw');
+        }
+
         // 회차 중복 체크
         $existingRound = $this->round->findByRoundNumber($roundNumber);
         if ($existingRound) {
