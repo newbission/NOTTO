@@ -74,11 +74,11 @@ function parseSort(array $allowedSorts, string $default = 'newest'): string
 function sortToOrderBy(string $sort): string
 {
     return match ($sort) {
-        'newest' => 'n.created_at DESC',
-        'oldest' => 'n.created_at ASC',
+        'newest' => 'n.updated_at DESC, n.id DESC',
+        'oldest' => 'n.updated_at ASC, n.id ASC',
         'name_asc' => 'n.name ASC',
         'name_desc' => 'n.name DESC',
-        default => 'n.created_at DESC',
+        default => 'n.updated_at DESC, n.id DESC',
     };
 }
 

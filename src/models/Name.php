@@ -107,7 +107,7 @@ class Name
      */
     public function getAll(string $orderBy, int $offset, int $limit): array
     {
-        $sql = "SELECT n.id, n.name, n.status, n.created_at,
+        $sql = "SELECT n.id, n.name, n.status, n.created_at, n.updated_at,
                        nr.numbers AS weekly_numbers,
                        nr.matched_count,
                        r.round_number
@@ -118,7 +118,7 @@ class Name
                     WHERE nr2.round_id = (SELECT MAX(id) FROM rounds)
                 ) nr ON n.id = nr.name_id
                 LEFT JOIN rounds r ON nr.round_id = r.id
-                WHERE n.status != 'deleted'
+                WHERE n.status = 'active'
                 ORDER BY $orderBy
                 LIMIT ? OFFSET ?";
 
@@ -127,13 +127,10 @@ class Name
         return $stmt->fetchAll();
     }
 
-    /**
-     * 전체 건수 (deleted 제외)
-     */
     public function countAll(): int
     {
         $stmt = $this->pdo->query(
-            "SELECT COUNT(*) FROM names WHERE status != 'deleted'"
+            "SELECT COUNT(*) FROM names WHERE status = 'active'"
         );
         return (int) $stmt->fetchColumn();
     }
