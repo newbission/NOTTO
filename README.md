@@ -1,56 +1,92 @@
 # NOTTO — AI가 점지해주는 이번 주 행운의 번호
 
-이름을 등록하면 매주 Google Gemini AI가 당신만을 위한 행운의 로또 번호를 추천해줍니다.
+> **Version**: v3.0 (MVP)
 
-## 주요 기능
+이름을 등록하면 매주 Google Gemini AI가 당신만을 위한 행운의 로또 번호를 추천해줍니다. 개인의 이름에 깃든 기운을 분석하여 세상에 단 하나뿐인 고유번호와 매주 기대감을 주는 주간번호를 생성합니다.
 
-- **이름 등록**: 이름만 입력하면 등록 완료 (1~20자, UTF-8 전체)
-- **매주 번호 생성**: 매주 일요일 AI가 등록된 모든 이름에 대해 번호 생성
-- **고유번호**: 이름 최초 등록 시 AI가 부여하는 평생 고정 번호
-- **당첨 비교**: 실제 로또 당첨번호와 내 번호 비교
-- **검색**: 이름 부분 검색 + 인피니티 스크롤
+## ✨ 주요 기능 (MVP)
 
-## 기술 스택
+- **이름 등록**: 이름만 입력하면 대기열에 추가되며 매 정각 자동으로 등록 완료 (1~20자, UTF-8 지원)
+- **고유번호 발급**: 이름 최초 등록 시 AI가 분석하여 평생 고정되는 고유번호(6개) 부여
+- **매주 번호 생성**: 매주 일요일 AI가 활성 상태의 모든 이름에 대해 새로운 주간번호 생성
+- **당첨 비교**: 실제 로또 당첨번호와 내 번호를 비교하여 적중 개수 확인
+- **이름 검색**: 부분 일치 검색 및 인피니티 스크롤을 통한 전체 등록자 탐색 
+- **프롬프트 관리**: Weekly 및 Fixed 고유번호 생성을 위한 AI 프롬프트 별도 관리
+
+## 🛠️ 기술 스택
 
 | 구분 | 기술 |
 |------|------|
-| Backend | PHP 8.3 |
-| Database | MySQL 8.0 / MariaDB 11.4 |
-| Frontend | Vanilla HTML / CSS / JS |
-| AI | Google Gemini API (Free Tier) |
-| Hosting | InfinityFree |
+| **Backend** | PHP 8.3 |
+| **Database** | MySQL 8.0 / MariaDB 11.4 |
+| **Frontend** | Vanilla HTML / CSS / JS |
+| **AI** | Google Gemini API (Free Tier: `gemini-2.5-flash`) |
+| **Environment** | Docker / Docker Compose |
+| **Hosting** | InfinityFree (Production) |
 
-## 설치
+## 🚀 로컬 개발 환경 (Docker)
 
-1. DB 생성 후 `database/schema.sql` 실행
-2. `.env.example`을 `.env`로 복사 후 실제 값 입력
-3. InfinityFree에 업로드:
-   - `public/` → `htdocs/`
-   - `src/` → `htdocs/../src/`
-   - `api/` → `htdocs/api/`
+프로젝트를 로컬에서 실행하려면 Docker가 필요합니다. 본 저장소에는 앱과 DB를 한 번에 구성할 수 있는 `docker-compose.yml`이 포함되어 있습니다.
+
+### 1. 환경 변수 설정
+
+`.env.example` 파일을 복사하여 로컬용 `.env.local` 파일을 생성합니다.
+```bash
+cp .env.example .env.local
+```
+생성된 `.env.local` 파일 내에 `GEMINI_API_KEY` 등을 알맞게 입력하세요.
+
+### 2. 컨테이너 실행
+
+아래 명령어를 통해 Docker 컨테이너를 빌드하고 백그라운드에서 실행합니다.
+```bash
+docker-compose up -d --build
+```
+*참고: 초기 실행 시 `docker-entrypoint.sh`를 통해 `database/schema.sql` 기반으로 DB 자동 마이그레이션이 진행됩니다.*
+
+### 3. 접속 정보
+
+- **Web App**: http://localhost:8080
+- **Adminer (DB 관리)**: http://localhost:8081 (Server: `db`, DB: `notto`, User: `root`, Password: `.env.local에 설정한 DB_PASS`)
+
+## 📦 운영 서버 (InfinityFree) 배포
+
+1. 운영 서버의 DB를 세팅하고 PHPMyAdmin 등을 사용하여 `database/schema.sql` 직접 실행
+2. `.env` 파일에 운영 환경 설정 반영 (DB_HOST, DB_NAME 등)
+3. FTP를 통해 소스 업로드:
+   - `public/*` → `htdocs/`
+   - `src/*` → `htdocs/../src/`
+   - `api/*` → `htdocs/api/`
+   - `fixed/*` → `htdocs/fixed/`
    - `.env` → `htdocs/../.env`
 
-## API
+## 📡 API 명세서
 
 | Method | Endpoint | 설명 |
 |--------|----------|------|
-| POST | `/api/register.php` | 이름 등록 |
-| GET | `/api/check-name.php` | 중복 체크 |
-| GET | `/api/search.php` | 부분 검색 |
-| GET | `/api/users.php` | 전체 목록 |
-| GET | `/api/fixed.php` | 고유번호 조회 |
-| POST | `/api/draw.php` | 매주 번호 생성 🔒 |
-| POST | `/api/process-pending.php` | 대기열 처리 🔒 |
-| GET | `/api/winning.php` | 당첨번호 입력 🔒 |
-| GET | `/api/prompts.php` | 프롬프트 관리 🔒 |
+| GET | `/api/healthcheck.php` | 서버 상태 점검 및 DB 연결 확인 |
+| POST | `/api/register.php` | 이름 등록 (pending 상태로 추가) |
+| GET | `/api/check-name.php` | 이름 중복 상태 체크 |
+| GET | `/api/search.php` | 이름 부분 검색 |
+| GET | `/api/users.php` | 전체 목록 조회 (인피니티 스크롤, 정렬 지원) |
+| GET | `/api/fixed.php` | 특정 이름의 고유번호 조회 |
+| POST | `/api/draw.php` | (관리자) 매주 신규 회차 및 번호 생성 🔒 |
+| POST | `/api/process-pending.php`| (관리자) 대기열 처리 및 고유번호 생성 🔒 |
+| GET | `/api/winning.php` | (관리자) 실제 당첨번호 입력 및 적중 검사 🔒 |
+| GET | `/api/prompts.php` | (관리자) 프롬프트 시스템 관리 🔒 |
 
-## 문서
+> **관리자 API (🔒)**는 URL 파라미터 또는 Header에 `ADMIN_TOKEN` 혹은 `token`을 포함해야 호출 가능합니다.
 
-- [Plan](docs/01-plan/features/notto.plan.md)
-- [Schema](docs/01-plan/schema.md)
-- [Convention](docs/01-plan/conventions.md)
-- [Design](docs/02-design/features/notto.design.md)
+## 📄 관련 문서
+
+기능 요구사항부터 설계, 검증까지 프로젝트의 생명주기를 다룬 문서들입니다:
+
+- **Plan**: [notto.plan.md](docs/01-plan/features/notto.plan.md) (요구사항 및 MVP 범위)
+- **DB Schema**: [schema.sql](database/schema.sql) (물리 모델)
+- **Design**: [notto.design.md](docs/02-design/features/notto.design.md) (API 스펙 및 아키텍처)
+- **Check (Gap Analysis)**: [mvp-gap-analysis.md](docs/03-analysis/mvp-gap-analysis.md) (요구사항 검증)
+- **Act (Completion Report)**: [mvp-completion-report.md](docs/04-report/mvp-completion-report.md) (MVP 완료 보고)
 
 ## License
 
-MIT
+MIT License
