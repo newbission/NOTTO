@@ -306,6 +306,9 @@
         // 다시 이벤트 리스너 연결 (innerHTML로 덮어썼으므로)
         document.getElementById('register-btn').addEventListener('click', handleRegister);
         registerPrompt.style.display = 'block';
+        registerPrompt.style.background = '';
+        registerPrompt.style.border = '';
+        registerPrompt.style.padding = '';
     }
 
     function showExactMatchPrompt(user) {
@@ -325,12 +328,12 @@
 
         let numbersHTML;
         if (isRejected) {
-            numbersHTML = `<div class="user-card__numbers" style="justify-content: center; font-size: 1.1rem; padding: var(--space-lg) 0;">사용할 수 없는 이름입니다.</div>`;
+            numbersHTML = `<div class="user-card__numbers">사용할 수 없는 이름입니다.</div>`;
         } else if (isWaiting) {
-            numbersHTML = `<div class="user-card__numbers" style="justify-content: center; font-size: 1.1rem; padding: var(--space-lg) 0;">번호 생성 대기중...</div>`;
+            numbersHTML = `<div class="user-card__numbers">번호 생성 대기중...</div>`;
         } else {
             const winningNumbers = user.winning_numbers || [];
-            numbersHTML = `<div class="user-card__numbers" style="justify-content: center; padding: var(--space-lg) 0;">
+            numbersHTML = `<div class="user-card__numbers">
                 ${user.weekly_numbers.map(n => {
                 const isMatched = winningNumbers.includes(n);
                 return `<span class="ball ball--large ${getBallClass(n)} ${isMatched ? 'ball--matched' : ''}">${n}</span>`;
@@ -345,16 +348,20 @@
         }
 
         registerPrompt.innerHTML = `
-            <div class="exact-match-result">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md); padding-bottom: var(--space-sm); border-bottom: 1px solid var(--color-border);">
-                    <h2 style="font-size: 1.5rem; color: var(--color-text); margin: 0;">${escapeHtml(user.name)}</h2>
-                    <span class="user-card__badge ${badgeClass}" style="font-size: 0.9rem; padding: 4px 12px;">${badgeText}</span>
+            <div class="exact-match-container">
+                <div class="exact-match-card">
+                    <span class="user-card__badge ${badgeClass}">${badgeText}</span>
+                    <div class="exact-match-card__subtitle">검색결과와 정확히 일치하는 이름입니다 ✨</div>
+                    <div class="exact-match-card__title">${escapeHtml(user.name)}</div>
+                    ${numbersHTML}
+                    ${metaHTML.length > 0 ? `<div class="user-card__meta">${metaHTML.join(' · ')}</div>` : ''}
                 </div>
-                ${numbersHTML}
-                ${metaHTML.length > 0 ? `<div class="user-card__meta" style="justify-content: center; font-size: 1rem; color: var(--color-primary);">${metaHTML.join(' · ')}</div>` : ''}
             </div>
         `;
         registerPrompt.style.display = 'block';
+        registerPrompt.style.background = 'transparent';
+        registerPrompt.style.border = 'none';
+        registerPrompt.style.padding = '0';
     }
 
     function showToast(message, type = 'info') {

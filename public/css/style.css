@@ -416,6 +416,7 @@ a:hover {
 .register-prompt__text {
     color: var(--color-text-muted);
     margin-bottom: var(--space-md);
+    font-size: 1.1rem;
 }
 
 .btn-register {
@@ -429,11 +430,90 @@ a:hover {
     cursor: pointer;
     font-family: var(--font-main);
     transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4);
 }
 
 .btn-register:hover {
     transform: scale(1.05);
-    box-shadow: var(--shadow-glow);
+    box-shadow: 0 6px 20px rgba(108, 92, 231, 0.6);
+}
+
+/* ─── Exact Match Hero Card ─── */
+.exact-match-container {
+    margin: var(--space-lg) auto var(--space-2xl);
+    max-width: calc(900px - calc(var(--space-md) * 2));
+    width: 100%;
+}
+
+.exact-match-card {
+    position: relative;
+    background: rgba(26, 34, 53, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+    animation: glow-pulse 3s infinite alternate ease-in-out;
+}
+
+.exact-match-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--color-primary-light), var(--color-primary), var(--color-accent));
+}
+
+.exact-match-card__title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: var(--space-xs);
+    letter-spacing: -0.02em;
+}
+
+.exact-match-card__subtitle {
+    font-size: 0.95rem;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-lg);
+}
+
+.exact-match-card .user-card__badge {
+    position: absolute;
+    top: var(--space-lg);
+    right: var(--space-lg);
+    font-size: 0.9rem;
+    padding: 6px 14px;
+}
+
+.exact-match-card .user-card__numbers {
+    justify-content: center;
+    padding: var(--space-md) 0;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-md);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.exact-match-card .user-card__meta {
+    justify-content: center;
+    color: var(--color-primary-light);
+    font-weight: 500;
+    font-size: 1.05rem;
+}
+
+@keyframes glow-pulse {
+    0% {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 rgba(108, 92, 231, 0);
+    }
+
+    100% {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(108, 92, 231, 0.2);
+    }
 }
 
 .btn-register:disabled {
