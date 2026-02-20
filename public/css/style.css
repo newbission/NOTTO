@@ -276,6 +276,11 @@ a:hover {
     color: var(--color-pending);
 }
 
+.user-card__badge--rejected {
+    background: rgba(231, 76, 60, 0.15);
+    color: var(--color-error);
+}
+
 .user-card__numbers {
     display: flex;
     gap: var(--space-sm);

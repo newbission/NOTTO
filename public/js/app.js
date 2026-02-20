@@ -168,16 +168,26 @@
 
     function createUserCard(user) {
         const card = document.createElement('div');
-        const isWaiting = user.status === 'pending' || !user.weekly_numbers;
-        card.className = `user-card ${isWaiting ? 'user-card--pending' : ''}`;
+        const isWaiting = user.status === 'pending' || (user.status === 'active' && !user.weekly_numbers);
+        const isRejected = user.status === 'rejected';
 
-        const badgeClass = user.status === 'active'
-            ? 'user-card__badge--active'
-            : 'user-card__badge--pending';
-        const badgeText = user.status === 'active' ? '활성' : '대기중';
+        card.className = `user-card ${isWaiting || isRejected ? 'user-card--pending' : ''} ${isRejected ? 'user-card--rejected' : ''}`;
+
+        let badgeClass = 'user-card__badge--pending';
+        let badgeText = '대기중';
+
+        if (user.status === 'active') {
+            badgeClass = 'user-card__badge--active';
+            badgeText = '활성';
+        } else if (isRejected) {
+            badgeClass = 'user-card__badge--rejected';
+            badgeText = '반려';
+        }
 
         let numbersHTML;
-        if (user.status === 'pending' || !user.weekly_numbers) {
+        if (isRejected) {
+            numbersHTML = `<div class="user-card__numbers">사용할 수 없는 이름입니다.</div>`;
+        } else if (isWaiting) {
             numbersHTML = `<div class="user-card__numbers">번호 생성 대기중...</div>`;
         } else {
             const winningNumbers = user.winning_numbers || [];
