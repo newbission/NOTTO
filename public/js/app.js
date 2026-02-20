@@ -305,10 +305,8 @@
 
         // 다시 이벤트 리스너 연결 (innerHTML로 덮어썼으므로)
         document.getElementById('register-btn').addEventListener('click', handleRegister);
+        registerPrompt.className = 'register-prompt';
         registerPrompt.style.display = 'block';
-        registerPrompt.style.background = '';
-        registerPrompt.style.border = '';
-        registerPrompt.style.padding = '';
     }
 
     function showExactMatchPrompt(user) {
@@ -317,13 +315,16 @@
 
         let badgeClass = 'user-card__badge--pending';
         let badgeText = '대기중';
+        let statusClass = 'status-pending';
 
         if (user.status === 'active') {
             badgeClass = 'user-card__badge--active';
             badgeText = '활성';
+            statusClass = 'status-active';
         } else if (isRejected) {
             badgeClass = 'user-card__badge--rejected';
             badgeText = '반려';
+            statusClass = 'status-rejected';
         }
 
         let numbersHTML;
@@ -349,9 +350,8 @@
 
         registerPrompt.innerHTML = `
             <div class="exact-match-container">
-                <div class="exact-match-card">
+                <div class="exact-match-card ${statusClass}">
                     <span class="user-card__badge ${badgeClass}">${badgeText}</span>
-                    <div class="exact-match-card__subtitle">검색결과와 정확히 일치하는 이름입니다 ✨</div>
                     <div class="exact-match-card__title">${escapeHtml(user.name)}</div>
                     ${numbersHTML}
                     ${metaHTML.length > 0 ? `<div class="user-card__meta">${metaHTML.join(' · ')}</div>` : ''}
@@ -359,9 +359,7 @@
             </div>
         `;
         registerPrompt.style.display = 'block';
-        registerPrompt.style.background = 'transparent';
-        registerPrompt.style.border = 'none';
-        registerPrompt.style.padding = '0';
+        registerPrompt.className = '';
     }
 
     function showToast(message, type = 'info') {
