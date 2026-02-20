@@ -34,6 +34,8 @@ if (empty($authHeader) && function_exists('apache_request_headers')) {
 $token = '';
 if (preg_match('/^Bearer\s+(.+)$/i', $authHeader, $matches)) {
     $token = $matches[1];
+} elseif (isset($_GET['token'])) {
+    $token = $_GET['token']; // 브라우저 테스트용 토큰
 }
 
 $adminToken = env('ADMIN_TOKEN', '');
@@ -49,8 +51,11 @@ $migrationsDir = __DIR__ . '/../database/migrations';
 try {
     $pdo = getDatabase();
 
-    // GET 또는 ?status → 상태 조회
-    if ($_SERVER['REQUEST_METHOD'] === 'GET' || isset($_GET['status'])) {
+    // 실행 모드 확인 (POST 요청이거나 GET 요청에 run=1 파라미터가 있을 때)
+    $isRunMode = $_SERVER['REQUEST_METHOD'] === 'POST' || !empty($_GET['run']);
+
+    // 상태 조회
+    if (!$isRunMode) {
         $status = getMigrationStatus($pdo, $migrationsDir);
         logInfo('마이그레이션 상태 조회', $status, 'api');
         echo json_encode([
@@ -60,24 +65,19 @@ try {
         exit;
     }
 
-    // POST → 마이그레이션 실행
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        logInfo('마이그레이션 실행 시작', [], 'api');
-        $result = runMigrations($pdo, $migrationsDir);
+    // 마이그레이션 실행
+    logInfo('마이그레이션 실행 시작', [], 'api');
+    $result = runMigrations($pdo, $migrationsDir);
 
-        $hasErrors = !empty($result['errors']);
-        $statusCode = $hasErrors ? 500 : 200;
+    $hasErrors = !empty($result['errors']);
+    $statusCode = $hasErrors ? 500 : 200;
 
-        http_response_code($statusCode);
-        echo json_encode([
-            'success' => !$hasErrors,
-            'data' => $result,
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-
-    http_response_code(405);
-    echo json_encode(['success' => false, 'error' => 'Method Not Allowed'], JSON_UNESCAPED_UNICODE);
+    http_response_code($statusCode);
+    echo json_encode([
+        'success' => !$hasErrors,
+        'data' => $result,
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 } catch (\Exception $e) {
     logError('마이그레이션 API 오류', ['error' => $e->getMessage()], 'api');
     http_response_code(500);
