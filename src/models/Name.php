@@ -78,12 +78,12 @@ class Name
                  WHERE nr2.round_id = (SELECT MAX(id) FROM rounds)
              ) nr ON n.id = nr.name_id
              LEFT JOIN rounds r ON nr.round_id = r.id
-             WHERE n.name LIKE ? AND n.status != 'deleted'
-             ORDER BY n.created_at DESC
+             WHERE (n.name LIKE ? AND n.status = 'active') OR n.name = ?
+             ORDER BY n.updated_at DESC, n.id DESC
              LIMIT ? OFFSET ?"
         );
         $likeQuery = '%' . $query . '%';
-        $stmt->execute([$likeQuery, $limit, $offset]);
+        $stmt->execute([$likeQuery, $query, $limit, $offset]);
         $results = $stmt->fetchAll();
 
         logInfo('이름 검색', ['query' => $query, 'results' => count($results)], 'model');
@@ -96,9 +96,9 @@ class Name
     public function searchCount(string $query): int
     {
         $stmt = $this->pdo->prepare(
-            "SELECT COUNT(*) FROM names WHERE name LIKE ? AND status != 'deleted'"
+            "SELECT COUNT(*) FROM names WHERE (name LIKE ? AND status = 'active') OR name = ?"
         );
-        $stmt->execute(['%' . $query . '%']);
+        $stmt->execute(['%' . $query . '%', $query]);
         return (int) $stmt->fetchColumn();
     }
 

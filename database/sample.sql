@@ -15,4 +15,5 @@ INSERT IGNORE INTO `names` (`name`, `status`, `fixed_numbers`) VALUES
 ('최수빈', 'active', '[7, 15, 23, 30, 37, 45]'),
 ('정하은', 'active', '[2, 11, 19, 26, 34, 43]'),
 ('홍길동', 'pending', NULL),
-('강예린', 'pending', NULL);
+('강예린', 'pending', NULL),
+('김철수', 'deleted', NULL);
