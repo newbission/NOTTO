@@ -246,13 +246,13 @@
                 return;
             }
 
-            showToast(`"${searchName}" 등록 완료! 곧 번호가 생성됩니다.`, 'success');
+            showToast(`"${searchName}" 등록 완료!`, 'success');
 
             // 등록 완료 시 방금 등록한 카드를 프롬프트 영역에 그대로 띄워주기
             const newCardUser = {
                 id: json.data.id,
                 name: json.data.name,
-                status: 'pending',
+                status: json.data.status || 'pending',
                 weekly_numbers: null,
                 round_number: null,
                 matched_count: null,

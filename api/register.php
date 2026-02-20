@@ -54,6 +54,27 @@ if ($existing) {
 $result = $nameModel->create($name);
 logInfo('이름 등록 성공', ['id' => $result['id'], 'name' => $name], 'api');
 
+// DIRECT_REGISTER=true 이면 즉시 고유번호 생성 (cron 없이 바로 처리)
+if (env('DIRECT_REGISTER') === 'true') {
+    logInfo('DIRECT_REGISTER 활성 — 즉시 처리 시작', ['id' => $result['id']], 'api');
+
+    require_once __DIR__ . '/../src/services/DrawService.php';
+    $service = new DrawService();
+    $processResult = $service->processPending();
+
+    logInfo('DIRECT_REGISTER 처리 완료', $processResult, 'api');
+
+    // 처리 후 최신 데이터 다시 조회
+    $updated = $nameModel->findByName($name);
+    jsonResponse([
+        'id' => (int) $updated['id'],
+        'name' => $updated['name'],
+        'status' => $updated['status'],
+        'fixed_numbers' => $updated['fixed_numbers'] ?? null,
+        'message' => '등록이 완료되었습니다. 고유번호가 생성되었습니다!',
+    ], [], 201);
+}
+
 jsonResponse([
     'id' => (int) $result['id'],
     'name' => $result['name'],
