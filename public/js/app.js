@@ -11,7 +11,7 @@
     'use strict';
 
     // ─── Config ───
-    const API_BASE = '../api';
+    const API_BASE = './api';
     const PER_PAGE = 20;
 
     // ─── DOM Elements ───

@@ -8,14 +8,14 @@
     <meta name="description" content="당신의 이름에만 부여되는 평생 고유번호를 확인하세요. AI가 분석한 운명의 번호입니다.">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="../public/css/style.css">
 </head>
 
 <body>
 
     <!-- Hero -->
     <header class="hero compact">
-        <a href="index.php" style="text-decoration:none;">
+        <a href="../" style="text-decoration:none;">
             <h1 class="hero__logo">NOTTO</h1>
         </a>
         <p class="hero__tagline" style="display:block; margin-bottom: var(--space-md);">🔮 이름에 새겨진 운명의 번호</p>
@@ -45,7 +45,7 @@
 
     <!-- Footer -->
     <footer class="nav-footer">
-        <a href="index.php" class="nav-link">← 메인으로 돌아가기</a>
+        <a href="../" class="nav-link">← 메인으로 돌아가기</a>
         <p style="margin-top: var(--space-sm);">© 2026 NOTTO</p>
     </footer>
 
