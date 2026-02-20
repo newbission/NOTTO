@@ -9,7 +9,7 @@
     <meta name="keywords" content="로또, AI, 번호 추천, 행운, NOTTO">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="public/css/style.css">
+    <link rel="stylesheet" href="public/css/style.css?v=2">
 </head>
 
 <body>
@@ -71,7 +71,7 @@
         <p>© 2026 NOTTO. 이 서비스는 재미를 위한 것이며, 실제 당첨을 보장하지 않습니다.</p>
     </footer>
 
-    <script src="public/js/app.js"></script>
+    <script src="public/js/app.js?v=2"></script>
 </body>
 
 </html>

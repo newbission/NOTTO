@@ -29,9 +29,8 @@ requireMethod('GET');
 $info = RoundHelper::getCurrentRoundInfo();
 
 if (!$info) {
-    errorResponse(500, 'NO_ROUND_DATA', '회차 데이터가 없습니다. 마이그레이션을 실행해주세요.');
+    jsonResponse(null);
+} else {
+    logInfo('회차 정보 조회', $info, 'api');
+    jsonResponse($info);
 }
-
-logInfo('회차 정보 조회', $info, 'api');
-
-jsonResponse($info);
