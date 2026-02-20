@@ -20,6 +20,7 @@
     const searchInput = document.getElementById('search-input');
     const sortControls = document.getElementById('sort-controls');
     const registerPrompt = document.getElementById('register-prompt');
+    const resultsGrid = document.getElementById('results-grid');
     const resultsStatus = document.getElementById('results-status');
     const loader = document.getElementById('loader');
     const sentinel = document.getElementById('sentinel');
