@@ -300,7 +300,7 @@
             <p class="register-prompt__text" id="register-text">
                 <strong>"${escapeHtml(name)}"</strong>은(는) 아직 등록되지 않은 이름입니다.
             </p>
-            <button class="btn btn--primary" id="register-btn">등록하기</button>
+            <button class="btn-register" id="register-btn">등록하기</button>
         `;
 
         // 다시 이벤트 리스너 연결 (innerHTML로 덮어썼으므로)
@@ -325,12 +325,12 @@
 
         let numbersHTML;
         if (isRejected) {
-            numbersHTML = `<div class="user-card__numbers" style="justify-content: center;">사용할 수 없는 이름입니다.</div>`;
+            numbersHTML = `<div class="user-card__numbers" style="justify-content: center; font-size: 1.1rem; padding: var(--space-lg) 0;">사용할 수 없는 이름입니다.</div>`;
         } else if (isWaiting) {
-            numbersHTML = `<div class="user-card__numbers" style="justify-content: center;">번호 생성 대기중...</div>`;
+            numbersHTML = `<div class="user-card__numbers" style="justify-content: center; font-size: 1.1rem; padding: var(--space-lg) 0;">번호 생성 대기중...</div>`;
         } else {
             const winningNumbers = user.winning_numbers || [];
-            numbersHTML = `<div class="user-card__numbers" style="justify-content: center; margin-top: var(--space-md);">
+            numbersHTML = `<div class="user-card__numbers" style="justify-content: center; padding: var(--space-lg) 0;">
                 ${user.weekly_numbers.map(n => {
                 const isMatched = winningNumbers.includes(n);
                 return `<span class="ball ball--large ${getBallClass(n)} ${isMatched ? 'ball--matched' : ''}">${n}</span>`;
@@ -338,12 +338,21 @@
             </div>`;
         }
 
+        const metaHTML = [];
+        if (user.round_number) metaHTML.push(`${user.round_number}회차`);
+        if (user.matched_count !== null && user.matched_count !== undefined) {
+            metaHTML.push(`적중 ${user.matched_count}개`);
+        }
+
         registerPrompt.innerHTML = `
-            <p class="register-prompt__text" style="font-size: 1.1rem;">
-                <strong>"${escapeHtml(user.name)}"</strong> 검색 결과입니다.
-                <span class="user-card__badge ${badgeClass}" style="margin-left: 8px; vertical-align: middle;">${badgeText}</span>
-            </p>
-            ${numbersHTML}
+            <div class="exact-match-result">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-md); padding-bottom: var(--space-sm); border-bottom: 1px solid var(--color-border);">
+                    <h2 style="font-size: 1.5rem; color: var(--color-text); margin: 0;">${escapeHtml(user.name)}</h2>
+                    <span class="user-card__badge ${badgeClass}" style="font-size: 0.9rem; padding: 4px 12px;">${badgeText}</span>
+                </div>
+                ${numbersHTML}
+                ${metaHTML.length > 0 ? `<div class="user-card__meta" style="justify-content: center; font-size: 1rem; color: var(--color-primary);">${metaHTML.join(' · ')}</div>` : ''}
+            </div>
         `;
         registerPrompt.style.display = 'block';
     }
