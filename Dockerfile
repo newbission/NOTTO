@@ -6,21 +6,9 @@ RUN docker-php-ext-install pdo pdo_mysql
 # Apache mod_rewrite 활성화
 RUN a2enmod rewrite
 
-# Document Root 변경 (public/ → htdocs)
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
-    /etc/apache2/sites-available/*.conf \
-    /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
-
-# API 디렉토리도 접근 가능하도록 Alias 설정 + Authorization 헤더 전달
-RUN echo '<Directory /var/www/html/api>\n\
-    Options -Indexes +FollowSymLinks\n\
-    AllowOverride All\n\
-    Require all granted\n\
-    SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1\n\
-</Directory>\n\
-Alias /api /var/www/html/api' > /etc/apache2/conf-available/api-alias.conf \
-    && a2enconf api-alias
+# AllowOverride 활성화 (프로젝트 루트 = Document Root)
+RUN sed -ri -e 's/AllowOverride None/AllowOverride All/g' \
+    /etc/apache2/apache2.conf
 
 # PHP 설정
 RUN echo "display_errors = On\n\
