@@ -2,8 +2,9 @@
 
 > **Summary**: NOTTO — AI가 점지해주는 이번 주 행운의 번호
 > **Date**: 2026-02-20
-> **Status**: Confirmed
-> **Version**: v3.0
+> **Updated**: 2026-02-22
+> **Status**: Confirmed (MVP 완료, 문서 동기화)
+> **Version**: v3.1
 
 ---
 
@@ -33,24 +34,30 @@ NOTTO는 이름을 등록하면 매주 Google Gemini AI가 해당 이름만을 �
 | Frontend | Vanilla HTML / CSS / JS | 프레임워크 없음 |
 | AI | Google Gemini API (Free Tier) | gemini-2.5-flash |
 | Hosting | InfinityFree | 추후 변경 가능 |
+| Dev Env | Docker / Docker Compose | PHP 8.3-apache + MySQL 8.0 + Adminer |
 | VCS | Git + GitHub | — |
 
 ---
 
 ## 2. Scope
 
-### 2.1 MVP (In Scope)
+### 2.1 MVP (In Scope) — ✅ 전체 완료
 
 - [x] 이름 등록 (1~20자, UTF-8 전체 허용, 시스템 필터 없음)
 - [x] 이름 부분 검색 (겹치는 이름 전부 표시)
 - [x] 전체 결과 인피니티 스크롤 (정렬 4종)
 - [x] 대기열 배치 처리 (매 정각 1시간 간격)
 - [x] 고유번호 생성 (이름 최초 등록 시 1회, 평생 고정)
-- [x] 매주 번호 생성 (일요일 00~09시)
+- [x] 매주 번호 생성 (자동 회차 계산, RoundHelper 기반)
 - [x] 고유번호 별도 페이지
 - [x] 실제 당첨번호 비교
 - [x] 프롬프트 DB 관리 (weekly / fixed)
 - [x] 관리자 API (번호 생성, 당첨번호 입력, 프롬프트 관리)
+- [x] 서버 진단 API (healthcheck.php)
+- [x] DB 마이그레이션 시스템 (migrator.php + migrations/)
+- [x] 로그 조회 API (logs.php)
+- [x] 회차 정보 공개 API (round.php)
+- [x] Docker 로컬 개발 환경
 
 ### 2.2 아이디어 보관 (Out of Scope)
 
@@ -106,27 +113,32 @@ NOTTO는 이름을 등록하면 매주 Google Gemini AI가 해당 이름만을 �
 
 ```
 NOTTO
-├── 🏠 index.php (메인 + 결과 조회 통합)
+├── 🏠 index.php (루트, 메인 + 결과 조회 통합)
 │   ├── 히어로: 검색바 중앙 배치 (임팩트)
+│   ├── 회차 배지: 현재 회차 정보 표시
 │   ├── 검색 시: 아래에 검색 결과 리스트 표시
 │   ├── 스크롤 시: 전체 결과 인피니티 스크롤
-│   ├── 정렬: 신규등록순 / 이름순(오름·내림) / 최신순 / 오래된순
+│   ├── 정렬: 최신등록순 / 이름순(오름·내림) / 오래된순
 │   └── 미등록 이름 → "등록하기" 버튼 → pending 등록
 │
-├── � fixed.php (고유번호 조회)
+├── 🔮 fixed/index.php (고유번호 조회)
 │   ├── 이름 검색 → 정확히 일치하는 이름의 고유번호 표시
 │   └── 고유번호 = 최초 등록 시 AI가 생성한 평생 고정 번호
 │
 └── 📡 api/ (백엔드 API)
-    ├── register.php     POST  — 이름 등록
-    ├── check-name.php   GET   — 이름 중복 체크
-    ├── search.php       GET   — 이름 부분 검색
-    ├── users.php        GET   — 전체 목록 (페이지네이션+정렬)
-    ├── fixed.php        GET   — 고유번호 조회
-    ├── draw.php         POST  — 매주 번호 생성 🔒
-    ├── process-pending.php POST — 대기열 처리 🔒
-    ├── winning.php      GET   — 당첨번호 입력 🔒
-    └── prompts.php      GET   — 프롬프트 CRUD 🔒
+    ├── register.php       POST  — 이름 등록
+    ├── check-name.php     GET   — 이름 중복 체크
+    ├── search.php         GET   — 이름 부분 검색
+    ├── users.php          GET   — 전체 목록 (페이지네이션+정렬)
+    ├── fixed.php          GET   — 고유번호 조회
+    ├── round.php          GET   — 현재 회차 정보 조회
+    ├── draw.php           POST  — 매주 번호 생성 🔒
+    ├── process-pending.php POST  — 대기열 처리 🔒
+    ├── winning.php        GET   — 당첨번호 입력 🔒
+    ├── prompts.php        GET   — 프롬프트 CRUD 🔒
+    ├── healthcheck.php    GET   — 서버 진단 🔒
+    ├── migrate.php        POST  — DB 마이그레이션 실행 🔒
+    └── logs.php           GET   — 로그 조회/관리 🔒
 ```
 
 ### 4.2 사용자 시나리오
@@ -154,10 +166,19 @@ NOTTO
   → pending 이름 조회 → Gemini API(fixed 프롬프트)로 고유번호 생성 → active으로 변경
 
 [매주 일요일] 외부 크론 → POST api/draw.php?token=XXX
-  → 새 회차 생성 → 전체 active 이름 → Gemini API(weekly 프롬프트)로 번호 생성
+  → RoundHelper로 자동 회차 계산 → 새 회차 생성 → 전체 active 이름 → Gemini API(weekly 프롬프트)로 번호 생성
 
-[로또 추첨 후] 관리자 수동 → GET api/winning.php?token=XXX&round=N&numbers=1,2,3,4,5,6&bonus=7
-  → 해당 회차 당첨번호 저장
+[로또 추첨 후] 관리자 수동 → GET api/winning.php?token=XXX&round_number=N&numbers=1,2,3,4,5,6&bonus=7
+  → 해당 회차 당첨번호 저장 + matched_count 자동 계산
+
+[서버 진단] 관리자 → GET api/healthcheck.php?token=XXX
+  → PHP 버전, DB 연결, 확장 모듈, 로그 디렉토리 상태 진단
+
+[DB 마이그레이션] 관리자 → POST api/migrate.php?token=XXX
+  → database/migrations/ 폴더의 미적용 SQL 파일 실행
+
+[로그 조회] 관리자 → GET api/logs.php?token=XXX
+  → 날짜별 로그 파일 조회/삭제
 ```
 
 ---
@@ -176,24 +197,26 @@ NOTTO
 
 ## 6. Success Criteria
 
-### 6.1 Definition of Done
+### 6.1 Definition of Done — ✅ MVP 완료
 
-- [ ] 이름 등록 → pending → 배치 처리 → active + 고유번호 생성 완료
-- [ ] 이름 검색 시 이번 회차 번호 표시
-- [ ] 전체 결과 인피니티 스크롤 + 정렬 동작
-- [ ] 관리자 API로 매주 번호 생성 가능
-- [ ] 관리자 API로 당첨번호 입력 가능
-- [ ] 고유번호 페이지에서 이름 고유번호 조회 가능
-- [ ] 모바일 반응형
-- [ ] InfinityFree 배포 완료
+- [x] 이름 등록 → pending → 배치 처리 → active + 고유번호 생성 완료
+- [x] 이름 검색 시 이번 회차 번호 표시
+- [x] 전체 결과 인피니티 스크롤 + 정렬 동작
+- [x] 관리자 API로 매주 번호 생성 가능
+- [x] 관리자 API로 당첨번호 입력 가능
+- [x] 고유번호 페이지에서 이름 고유번호 조회 가능
+- [x] 모바일 반응형
+- [ ] InfinityFree 배포 완료 (미완)
 
-### 6.2 Quality Criteria
+### 6.2 Quality Criteria — ✅ 충족
 
-- [ ] SQL Injection 방지 (Prepared Statements)
-- [ ] XSS 방지 (`htmlspecialchars()`)
-- [ ] 관리 API 토큰 보호
-- [ ] Gemini API 실패 시 graceful 에러 처리
-- [ ] 50,000 일일 히트 내 운영 가능
+- [x] SQL Injection 방지 (Prepared Statements)
+- [x] XSS 방지 (`htmlspecialchars()`)
+- [x] 관리 API 토큰 보호
+- [x] Gemini API 실패 시 graceful 에러 처리
+- [x] 글로벌 에러/예외 핸들러 (JSON 응답)
+- [x] .htaccess 보안 (민감 디렉토리 차단)
+- [ ] 50,000 일일 히트 내 운영 가능 (배포 후 검증 필요)
 
 ---
 
@@ -241,50 +264,76 @@ NOTTO
 
 ```
 notto/
-├── public/                     # 웹 루트 (Document Root)
-│   ├── index.php               # 메인 + 결과 조회
-│   ├── fixed.php               # 고유번호 조회
+├── index.php                   # 메인 + 결과 조회 (루트)
+├── .htaccess                   # Apache 보안 설정
+│
+├── public/                     # 정적 자산
 │   ├── css/
 │   │   └── style.css
 │   ├── js/
 │   │   └── app.js
 │   └── assets/images/
+│       └── favicon.png
 │
-├── src/                        # 백엔드 로직 (웹 루트 외부)
+├── fixed/                      # 고유번호 조회 페이지
+│   └── index.php
+│
+├── src/                        # 백엔드 로직 (웹 루트 내부지만 .htaccess로 차단)
 │   ├── config/
-│   │   └── database.php
+│   │   └── database.php        # PDO 연결 + .env 로드 + 글로벌 에러 핸들러
 │   ├── models/
-│   │   ├── User.php
-│   │   ├── Round.php
-│   │   └── Prompt.php
+│   │   ├── Name.php            # names 테이블 CRUD
+│   │   ├── Round.php           # rounds 테이블 CRUD
+│   │   └── Prompt.php          # prompts 테이블 CRUD
 │   ├── services/
-│   │   ├── GeminiService.php
-│   │   └── DrawService.php
+│   │   ├── GeminiService.php   # Gemini API 클라이언트
+│   │   └── DrawService.php     # 번호 생성 비즈니스 로직
 │   └── helpers/
-│       ├── response.php
-│       └── validator.php
+│       ├── response.php        # JSON 응답 헬퍼 + 토큰 검증
+│       ├── validator.php       # 입력 검증 + 페이지네이션/정렬 파서
+│       ├── logger.php          # 날짜별 로그 시스템
+│       ├── RoundHelper.php     # 회차 자동 계산 유틸리티
+│       └── migrator.php        # DB 마이그레이션 실행기
 │
 ├── api/                        # API 엔드포인트
-│   ├── register.php
-│   ├── check-name.php
-│   ├── search.php
-│   ├── users.php
-│   ├── fixed.php
-│   ├── draw.php          🔒
-│   ├── process-pending.php 🔒
-│   ├── winning.php       🔒
-│   └── prompts.php       🔒
+│   ├── register.php            # POST — 이름 등록
+│   ├── check-name.php          # GET  — 이름 중복 체크
+│   ├── search.php              # GET  — 이름 부분 검색
+│   ├── users.php               # GET  — 전체 목록
+│   ├── fixed.php               # GET  — 고유번호 조회
+│   ├── round.php               # GET  — 현재 회차 정보
+│   ├── draw.php                # POST — 매주 번호 생성 🔒
+│   ├── process-pending.php     # POST — 대기열 처리 🔒
+│   ├── winning.php             # GET  — 당첨번호 입력 🔒
+│   ├── prompts.php             # GET  — 프롬프트 CRUD 🔒
+│   ├── healthcheck.php         # GET  — 서버 진단 🔒
+│   ├── migrate.php             # POST — DB 마이그레이션 🔒
+│   └── logs.php                # GET  — 로그 조회/관리 🔒
 │
 ├── database/
-│   └── schema.sql
+│   ├── schema.sql              # 통합 스키마 (신규 설치용)
+│   ├── sample.sql              # 샘플 데이터
+│   └── migrations/             # 버전별 마이그레이션
+│       ├── V001__initial_schema.sql
+│       └── V002__initial_round_data.sql
 │
-├── docs/
+├── logs/                       # 애플리케이션 로그 (날짜별 폴더)
+│   └── {YYYY-MM-DD}/
+│       ├── api.log
+│       ├── model.log
+│       └── error.log
+│
+├── docs/                       # PDCA 문서
 │   ├── 01-plan/
 │   ├── 02-design/
 │   ├── 03-analysis/
 │   └── 04-report/
 │
+├── Dockerfile                  # PHP 8.3-apache 이미지
+├── docker-compose.yml          # app + db + adminer
+├── docker-entrypoint.sh        # DB 초기화/마이그레이션 자동 실행
 ├── .env.example
+├── .env.local                  # Docker 로컬 환경 변수
 ├── .gitignore
 └── README.md
 ```
@@ -308,14 +357,29 @@ ADMIN_TOKEN=your_secure_random_token
 # App
 APP_ENV=production
 APP_DEBUG=false
+DIRECT_REGISTER=false          # true: 등록 시 즉시 active (배치 처리 생략)
 ```
 
 ---
 
-## 9. Next Steps
+## 9. 완료 상태 및 향후 계획
 
-1. ✅ Plan 문서 확정 (현재 문서)
-2. ⬜ Schema 문서 (`docs/01-plan/schema.md`) — 용어 사전 + 데이터 모델
-3. ⬜ Convention 문서 (`docs/01-plan/conventions.md`) — 코딩 규칙
-4. ⬜ Design 문서 (`docs/02-design/features/notto.design.md`) — 상세 설계
-5. ⬜ 구현 시작
+### 9.1 MVP 완료 이력
+
+1. ✅ Plan 문서 확정
+2. ✅ Schema 문서 (`docs/01-plan/schema.md`) — 용어 사전 + 데이터 모델
+3. ✅ Convention 문서 (`docs/01-plan/conventions.md`) — 코딩 규칙
+4. ✅ Design 문서 (`docs/02-design/features/notto.design.md`) — 상세 설계
+5. ✅ MVP 구현 완료
+6. ✅ Gap Analysis 100% 달성 (`docs/03-analysis/mvp-gap-analysis.md`)
+7. ✅ Completion Report (`docs/04-report/mvp-completion-report.md`)
+8. ✅ 문서 동기화 (v3.1 — 2026-02-22)
+
+### 9.2 향후 확장 후보 (아이디어 보관함에서)
+
+- 과거 회차 탐색 (회차별 결과 / 이름별 히스토리)
+- 당첨 이름 보기 (등수별 당첨자 나열)
+- 명예의 전당 (당첨 이력 배지)
+- 행운 통계 (적중률, 행운 점수)
+- 결과 공유 링크 (SNS/카톡 공유)
+- InfinityFree 운영 배포

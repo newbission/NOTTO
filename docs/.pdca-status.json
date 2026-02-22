@@ -1,0 +1,41 @@
+{
+  "version": "2.0",
+  "lastUpdated": "2026-02-22T15:00:00.000Z",
+  "activeFeatures": [],
+  "primaryFeature": null,
+  "features": {
+    "notto": {
+      "phase": "archived",
+      "matchRate": 100,
+      "iterationCount": 0,
+      "startedAt": "2026-02-20T00:00:00Z",
+      "archivedAt": "2026-02-22T15:00:00Z",
+      "archivedTo": "docs/archive/2026-02/notto/"
+    }
+  },
+  "pipeline": {
+    "currentPhase": 8,
+    "level": "Dynamic",
+    "phaseHistory": [
+      {"phase": 1, "completedAt": "2026-02-20", "note": "Schema 정의"},
+      {"phase": 2, "completedAt": "2026-02-20", "note": "Convention 정의"},
+      {"phase": 4, "completedAt": "2026-02-21", "note": "API 구현 완료"},
+      {"phase": 5, "completedAt": "2026-02-21", "note": "프론트엔드 구현"},
+      {"phase": 8, "completedAt": "2026-02-22", "note": "문서 동기화 리뷰"}
+    ]
+  },
+  "session": {
+    "startedAt": "2026-02-22T04:48:12.540Z",
+    "onboardingCompleted": true,
+    "lastActivity": "2026-02-22T15:00:00.000Z"
+  },
+  "history": [
+    {"action": "plan_created", "feature": "notto", "timestamp": "2026-02-20T00:00:00Z"},
+    {"action": "design_created", "feature": "notto", "timestamp": "2026-02-20T00:00:00Z"},
+    {"action": "implementation_completed", "feature": "notto", "timestamp": "2026-02-21T00:00:00Z"},
+    {"action": "gap_analysis_100", "feature": "notto", "timestamp": "2026-02-21T00:00:00Z"},
+    {"action": "report_completed", "feature": "notto", "timestamp": "2026-02-21T00:00:00Z"},
+    {"action": "documents_synced", "feature": "notto", "timestamp": "2026-02-22T14:00:00Z", "note": "실제 구현과 문서 동기화 (v3.1)"},
+    {"action": "archived", "feature": "notto", "timestamp": "2026-02-22T15:00:00Z", "note": "docs/archive/2026-02/notto/ (--summary)"}
+  ]
+}

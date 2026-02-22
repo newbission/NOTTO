@@ -1,0 +1,22 @@
+{
+  "sessionCount": 3,
+  "lastSession": {
+    "startedAt": "2026-02-22T06:38:54.960Z",
+    "platform": "claude",
+    "level": "Enterprise"
+  },
+  "projectInfo": {
+    "name": "NOTTO",
+    "description": "AI가 점지해주는 이번 주 행운의 번호",
+    "techStack": "PHP 8.3 + MySQL 8.0 + Vanilla JS + Gemini API",
+    "devEnv": "Docker (PHP 8.3-apache + MySQL 8.0 + Adminer)",
+    "hosting": "InfinityFree (계획중)"
+  },
+  "pdcaStatus": {
+    "feature": "notto",
+    "phase": "archived",
+    "matchRate": 100,
+    "archivedTo": "docs/archive/2026-02/notto/",
+    "archivedAt": "2026-02-22"
+  }
+}

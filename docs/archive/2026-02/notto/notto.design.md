@@ -1,8 +1,9 @@
 # NOTTO Design Document
 
-> **Summary**: NOTTO v3.0 MVP 상세 설계 — 데이터 모델, API 스펙, UI/UX, 보안, 구현 가이드
+> **Summary**: NOTTO v3.1 MVP 상세 설계 — 데이터 모델, API 스펙, UI/UX, 보안, 구현 가이드
 > **Date**: 2026-02-20
-> **Status**: Confirmed
+> **Updated**: 2026-02-22
+> **Status**: Confirmed (실제 구현과 동기화 완료)
 > **Planning Doc**: notto.plan.md
 
 ---
@@ -16,9 +17,10 @@
 
 ### 1.2 설계 원칙
 - **Simple First**: 프레임워크 없이 Vanilla PHP/JS/CSS
-- **보안 필수**: Prepared Statements, XSS 방지, 토큰 보호
+- **보안 필수**: Prepared Statements, XSS 방지, 토큰 보호, .htaccess 경로 차단
 - **API 중심**: 프론트엔드는 API를 통해 데이터 취득 (AJAX)
-- **관리자 API**: 모든 관리 기능은 REST API로만 (관리자 UI 없음)
+- **관리자 API**: 모든 관리 기능은 REST API로 제공 (토큰 인증)
+- **운영 가시성**: 로깅 시스템 + 헬스체크 + 로그 조회 API
 
 ---
 
@@ -28,13 +30,22 @@
 
 ### 2.1 DDL (schema.sql)
 
+> 실제 코드의 테이블명은 `names` / `name_rounds`입니다 (서비스에 "사용자" 개념 없이 "이름"만 존재).
+
 ```sql
 -- ============================================
--- NOTTO Database Schema
--- InfinityFree 호환 (FK 미지원, MyISAM 호환)
+-- NOTTO Database Schema (통합본)
+-- 현재 버전: V002
 -- ============================================
 
-CREATE TABLE IF NOT EXISTS `users` (
+CREATE TABLE IF NOT EXISTS `schema_versions` (
+    `version` VARCHAR(10) NOT NULL COMMENT '버전 번호 (V001, V002...)',
+    `description` VARCHAR(255) NOT NULL COMMENT '마이그레이션 설명',
+    `applied_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`version`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `names` (
     `id` INT NOT NULL AUTO_INCREMENT,
     `name` VARCHAR(80) NOT NULL COMMENT '등록 이름 (UTF-8, 최대 20자)',
     `status` ENUM('pending','active','rejected') NOT NULL DEFAULT 'pending' COMMENT '상태',
@@ -57,16 +68,16 @@ CREATE TABLE IF NOT EXISTS `rounds` (
     UNIQUE KEY `uq_round_number` (`round_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `user_rounds` (
+CREATE TABLE IF NOT EXISTS `name_rounds` (
     `id` INT NOT NULL AUTO_INCREMENT,
-    `user_id` INT NOT NULL COMMENT 'users.id',
+    `name_id` INT NOT NULL COMMENT 'names.id',
     `round_id` INT NOT NULL COMMENT 'rounds.id',
     `numbers` JSON NOT NULL COMMENT 'AI 생성 번호 6개',
     `matched_count` TINYINT DEFAULT NULL COMMENT '적중 수',
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uq_user_round` (`user_id`, `round_id`),
-    INDEX `idx_user_id` (`user_id`),
+    UNIQUE KEY `uq_name_round` (`name_id`, `round_id`),
+    INDEX `idx_name_id` (`name_id`),
     INDEX `idx_round_id` (`round_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -247,6 +258,27 @@ name=홍길동
 
 ---
 
+#### GET `/api/round.php` — 현재 회차 정보
+
+**Request**: (파라미터 없음)
+
+**Response (200)**:
+```json
+{
+    "success": true,
+    "data": {
+        "round_number": 1212,
+        "draw_date": "2026-02-21",
+        "is_draw_day": false,
+        "has_drawn": false
+    }
+}
+```
+
+> DB에서 최신 회차를 조회하여 반환. 회차 없으면 `data: null`.
+
+---
+
 ### 3.2 관리자 API (🔒 토큰 필수)
 
 모든 관리자 API는 `token` 파라미터로 `ADMIN_TOKEN` 검증.
@@ -256,20 +288,16 @@ name=홍길동
 
 #### POST `/api/draw.php` — 매주 번호 생성
 
-**Request**: `?token=XXX`
-
-Body:
-```
-round_number=1160&draw_date=2026-02-22
-```
+**Request**: `?token=XXX` (Body 불필요 — RoundHelper가 자동으로 다음 회차 계산)
 
 **처리 로직**:
-1. `rounds` 테이블에 새 회차 생성
-2. `users` 테이블에서 `status='active'` 전체 조회
+1. `RoundHelper::getNextRound()`로 다음 회차번호/추첨일 자동 계산
+2. `rounds` 테이블에 새 회차 생성
+3. `names` 테이블에서 `status='active'` 전체 조회
 3. 10~20명 단위 청크로 분할
 4. `prompts` 테이블에서 `type='weekly' AND is_active=1` 프롬프트 조회
 5. 프롬프트 + 이름 목록 → Gemini API 호출
-6. 응답 파싱 → `user_rounds` 테이블에 저장
+6. 응답 파싱 → `name_rounds` 테이블에 저장
 7. 요청 간 2~3초 딜레이 (RPM 보호)
 
 **Response (200)**:
@@ -294,11 +322,11 @@ round_number=1160&draw_date=2026-02-22
 **Request**: `?token=XXX`
 
 **처리 로직**:
-1. `users` 테이블에서 `status='pending'` 조회
+1. `names` 테이블에서 `status='pending'` 조회
 2. 이름이 없으면 종료
 3. `prompts` 테이블에서 `type='fixed' AND is_active=1` 프롬프트 조회
 4. 청크 단위로 Gemini API 호출 → 고유번호 생성
-5. `users.fixed_numbers` 업데이트 + `status='active'` 변경
+5. `names.fixed_numbers` 업데이트 + `status='active'` 변경
 
 **Response (200)**:
 ```json
@@ -321,7 +349,7 @@ round_number=1160&draw_date=2026-02-22
 **처리 로직**:
 1. `rounds` 테이블에서 해당 회차 조회
 2. `winning_numbers`, `bonus_number` 업데이트
-3. 해당 회차의 모든 `user_rounds`에 대해 `matched_count` 계산 및 업데이트
+3. 해당 회차의 모든 `name_rounds`에 대해 `matched_count` 계산 및 업데이트
 
 **matched_count 계산**:
 ```
@@ -375,6 +403,40 @@ matched_count = count(user_numbers ∩ winning_numbers)
 
 **활성 전환**: `?token=XXX&action=activate&id=3`
 - 해당 프롬프트의 type과 같은 기존 활성 비활성화 → 이것만 활성화
+
+---
+
+#### GET `/api/healthcheck.php` — 서버 진단
+
+**Request**: `?token=XXX`
+
+**Response (200)**: PHP 버전, 필수 확장, DB 연결 상태, 로그 디렉토리 권한, .env 로드 상태, 서버 정보 반환.
+
+---
+
+#### POST `/api/migrate.php` — DB 마이그레이션 실행
+
+**Request**: `?token=XXX` (POST) 또는 `?token=XXX` (GET = 상태 조회만)
+
+**처리 로직**:
+1. `database/migrations/` 폴더에서 `V{NNN}__*.sql` 파일 스캔
+2. `schema_versions` 테이블과 비교하여 미적용 버전 감지
+3. POST 요청 시 미적용 SQL 순차 실행 + 버전 기록
+
+**인증**: Authorization: Bearer {token} 헤더 또는 `?token=XXX` 파라미터
+
+---
+
+#### GET `/api/logs.php` — 로그 조회/관리
+
+**Request**:
+- 날짜 목록: `?token=XXX`
+- 파일 목록: `?token=XXX&date=2026-02-21`
+- 로그 조회: `?token=XXX&date=2026-02-21&file=api.log&lines=50`
+- 로그 삭제: `?token=XXX&date=2026-02-21&file=api.log&action=delete`
+- 날짜 폴더 삭제: `?token=XXX&date=2026-02-21&action=delete`
+
+> InfinityFree 등 터미널 접근 불가 환경에서 로그를 원격으로 확인하기 위한 API.
 
 ---
 
@@ -515,12 +577,24 @@ function errorResponse(int $httpCode, string $code, string $message): never {
 }
 ```
 
-### 5.3 Gemini API 에러 처리
+### 5.3 글로벌 에러/예외 핸들러
+
+`src/config/database.php`에 등록된 글로벌 핸들러:
+
+```php
+// set_exception_handler: Uncaught Exception → JSON 에러 응답 + error 채널 로깅
+// set_error_handler: PHP Error → JSON 에러 응답 + error 채널 로깅
+// register_shutdown_function: Fatal Error → JSON 에러 응답 + error 채널 로깅
+// APP_DEBUG=true: 상세 에러 메시지 노출
+// APP_DEBUG=false: "서버 내부 오류가 발생했습니다." 일반 메시지
+```
+
+### 5.4 Gemini API 에러 처리
 
 ```
 Gemini 호출 실패 시:
 1. 해당 청크 스킵 (전체 중단 아님)
-2. 실패한 이름들 로깅
+2. 실패한 이름들 로깅 (gemini 채널)
 3. 최종 결과에 failed 카운트 포함
 4. 재시도 로직은 없음 (다음 배치 처리 시 자동 재처리)
 ```
@@ -533,69 +607,80 @@ Gemini 호출 실패 시:
 |------|----------|
 | SQL Injection | `PDO::prepare()` + 바인딩, 직접 쿼리 금지 |
 | XSS | `htmlspecialchars($v, ENT_QUOTES, 'UTF-8')` 출력 시 필수 |
-| 관리 API 보호 | `$_GET['token'] === getenv('ADMIN_TOKEN')` 검증 |
+| 관리 API 보호 | `requireAdminToken()` — GET/POST `token` 파라미터 검증 |
+| Path Traversal | `logs.php`에서 날짜 형식 검증 + `realpath()` + `str_starts_with()` |
+| 에러 노출 방지 | 글로벌 예외/에러 핸들러가 JSON 응답, `APP_DEBUG=false` 시 메시지 은닉 |
+| 디렉토리 차단 | `.htaccess` — src/, logs/, database/, .git/, .agent/, Docker 파일 접근 차단 |
+| .env 보호 | `.htaccess` FilesMatch + `.gitignore` |
 | CORS | 동일 도메인이므로 별도 설정 불필요 |
 | Rate Limit | InfinityFree 자체 제한에 의존 |
-| 환경 변수 | `.env` 파일, 웹 루트 외부 배치, `.gitignore`에 포함 |
+| 보안 로깅 | 토큰 인증 실패 시 `security` 채널로 IP/URI 기록 |
 
 ---
 
 ## 7. Implementation Guide
 
-### 7.1 구현 순서
+### 7.1 구현 순서 — ✅ 전체 완료
 
 ```
-Phase 1: 기반 구축
-├── 1-1. database/schema.sql 작성 ✦ (이 문서의 DDL 그대로 사용)
-├── 1-2. .env.example + src/config/database.php (DB 연결)
-├── 1-3. src/helpers/response.php (JSON 응답 헬퍼)
-└── 1-4. src/helpers/validator.php (입력 검증 헬퍼)
+Phase 1: 기반 구축 ✅
+├── 1-1. database/schema.sql + migrations/ 작성
+├── 1-2. .env.example + src/config/database.php (DB 연결 + 글로벌 에러 핸들러)
+├── 1-3. src/helpers/response.php (JSON 응답 헬퍼 + 토큰 검증)
+├── 1-4. src/helpers/validator.php (입력 검증 + 페이지네이션/정렬 파서)
+├── 1-5. src/helpers/logger.php (날짜별 로그 시스템)
+├── 1-6. src/helpers/migrator.php (DB 마이그레이션)
+└── 1-7. src/helpers/RoundHelper.php (회차 자동 계산)
 
-Phase 2: 핵심 API
+Phase 2: 핵심 API ✅
 ├── 2-1. api/register.php (이름 등록)
 ├── 2-2. api/check-name.php (중복 체크)
 ├── 2-3. api/search.php (부분 검색)
-└── 2-4. api/users.php (전체 목록 + 페이지네이션 + 정렬)
+├── 2-4. api/users.php (전체 목록 + 페이지네이션 + 정렬)
+└── 2-5. api/round.php (현재 회차 정보)
 
-Phase 3: AI 연동
+Phase 3: AI 연동 ✅
 ├── 3-1. src/services/GeminiService.php (Gemini API 클라이언트)
 ├── 3-2. src/services/DrawService.php (번호 생성 비즈니스 로직)
 ├── 3-3. api/prompts.php (프롬프트 CRUD)
 ├── 3-4. api/process-pending.php (대기열 처리 + 고유번호 생성)
-└── 3-5. api/draw.php (매주 번호 생성)
+└── 3-5. api/draw.php (매주 번호 생성, RoundHelper 자동 회차)
 
-Phase 4: 당첨 비교
+Phase 4: 당첨 비교 ✅
 ├── 4-1. api/winning.php (당첨번호 입력 + matched_count 계산)
 └── 4-2. api/fixed.php (고유번호 조회 API)
 
-Phase 5: 프론트엔드
+Phase 5: 프론트엔드 ✅
 ├── 5-1. public/css/style.css (디자인 시스템)
-├── 5-2. public/index.php (메인 페이지 HTML)
+├── 5-2. index.php (메인 페이지 HTML — 루트)
 ├── 5-3. public/js/app.js (검색, 인피니티 스크롤, 등록)
-├── 5-4. public/fixed.php (고유번호 페이지)
+├── 5-4. fixed/index.php (고유번호 페이지)
 └── 5-5. 반응형 + 번호 공(Ball) UI
 
-Phase 6: 배포
-├── 6-1. InfinityFree 계정 설정
-├── 6-2. 파일 업로드 (FTP)
-├── 6-3. DB 생성 + schema.sql 실행
-├── 6-4. .env 파일 생성
-├── 6-5. 외부 크론 서비스 설정 (cron-job.org)
-└── 6-6. 동작 검증
+Phase 6: 인프라/운영 ✅ (Docker 로컬), ⏳ (InfinityFree 배포)
+├── 6-1. Dockerfile + docker-compose.yml + docker-entrypoint.sh
+├── 6-2. .htaccess (Apache 보안 설정)
+├── 6-3. api/healthcheck.php (서버 진단)
+├── 6-4. api/migrate.php (DB 마이그레이션 API)
+├── 6-5. api/logs.php (로그 조회 API)
+└── 6-6. InfinityFree 배포 (미완)
 ```
 
 ### 7.2 핵심 파일별 책임
 
 | 파일 | 역할 | 의존 |
 |------|------|------|
-| `src/config/database.php` | PDO 연결 생성, .env 로드 | — |
-| `src/helpers/response.php` | `jsonResponse()`, `errorResponse()` | — |
-| `src/helpers/validator.php` | `validateName()`, `validateToken()` | — |
-| `src/models/User.php` | 사용자 CRUD | database.php |
+| `src/config/database.php` | PDO 연결, .env 로드, 글로벌 에러/예외 핸들러 | — |
+| `src/helpers/response.php` | `jsonResponse()`, `errorResponse()`, `requireMethod()`, `requireAdminToken()` | logger.php |
+| `src/helpers/validator.php` | `validateName()`, `parsePagination()`, `parseSort()`, `sortToOrderBy()`, `validateLottoNumbers()` | — |
+| `src/helpers/logger.php` | `logInfo()`, `logWarn()`, `logError()`, `logDebug()` — 날짜별 폴더 로그 | — |
+| `src/helpers/RoundHelper.php` | `getCurrentRoundInfo()`, `getNextRound()` — 회차 자동 계산 | database.php, logger.php |
+| `src/helpers/migrator.php` | `runMigrations()`, `getMigrationStatus()` — DB 마이그레이션 | database.php, logger.php |
+| `src/models/Name.php` | 이름 CRUD (names 테이블) | database.php, logger.php |
 | `src/models/Round.php` | 회차 CRUD | database.php |
 | `src/models/Prompt.php` | 프롬프트 CRUD + 활성 전환 | database.php |
-| `src/services/GeminiService.php` | API 호출, JSON 파싱 | — |
-| `src/services/DrawService.php` | 청크 분할, 배치 처리 오케스트레이션 | GeminiService, User, Round, Prompt |
+| `src/services/GeminiService.php` | Gemini API 호출, JSON 파싱 | — |
+| `src/services/DrawService.php` | 청크 분할, 배치 처리 오케스트레이션 | GeminiService, Name, Round, Prompt |
 
 ### 7.3 GeminiService 설계
 
@@ -648,31 +733,43 @@ $requestBody = [
 ];
 ```
 
-### 7.4 InfinityFree 배포 매핑
+### 7.4 배포 매핑
+
+#### 로컬 개발 (Docker)
+
+```
+docker-compose up -d --build
+→ http://localhost:8080 (앱)
+→ http://localhost:8081 (Adminer DB 관리)
+→ docker-entrypoint.sh가 schema.sql 또는 migrations 자동 실행
+```
+
+#### InfinityFree 운영 배포
 
 ```
 InfinityFree 서버 구조:
 htdocs/                          ← Document Root
-├── index.php                    ← public/index.php
-├── fixed.php                    ← public/fixed.php
-├── css/style.css                ← public/css/style.css
-├── js/app.js                    ← public/js/app.js
+├── index.php                    ← index.php (루트)
+├── .htaccess                    ← .htaccess (보안 설정)
+├── fixed/index.php              ← fixed/index.php
+├── public/css/style.css         ← public/css/style.css
+├── public/js/app.js             ← public/js/app.js
+├── public/assets/images/        ← public/assets/images/
+├── src/                         ← src/ (.htaccess로 직접 접근 차단)
+│   ├── config/database.php
+│   ├── models/
+│   ├── services/
+│   └── helpers/
 └── api/                         ← api/
     ├── register.php
     ├── ...
-    └── draw.php
+    └── logs.php
 
-htdocs/../src/                   ← src/ (웹 루트 외부)
-├── config/database.php
-├── models/
-├── services/
-└── helpers/
-
-htdocs/../.env                   ← 환경 변수 파일
+htdocs/../.env                   ← 환경 변수 파일 (또는 htdocs/.env, .htaccess로 차단)
 ```
 
-> `src/` 내 파일들은 PHP `require_once __DIR__ . '/../src/...'` 로 참조.
-> 웹 브라우저에서 직접 접근 불가.
+> `src/` 내 파일들은 `.htaccess`의 RewriteRule로 직접 접근 차단.
+> PHP `require_once __DIR__ . '/../src/...'` 로만 참조.
 
 ### 7.5 외부 크론 서비스 설정
 
@@ -736,9 +833,9 @@ htdocs/../.env                   ← 환경 변수 파일
 
 ```
 ┌─────────────────────────────────────────┐
-│  public/ (Presentation)                 │
-│  - HTML 렌더링                           │
-│  - 사용자 입력 받기                       │
+│  index.php, fixed/                      │
+│  (Presentation)                         │
+│  - HTML 렌더링, 사용자 입력 받기          │
 ├─────────────────────────────────────────┤
 │  api/ (Controller 역할)                  │
 │  - 입력 검증                             │
@@ -750,18 +847,21 @@ htdocs/../.env                   ← 환경 변수 파일
 │  - 외부 API 연동 (Gemini)               │
 ├─────────────────────────────────────────┤
 │  src/models/ (Data Access)              │
-│  - DB CRUD                              │
-│  - SQL 쿼리                             │
+│  - Name.php, Round.php, Prompt.php      │
+│  - DB CRUD, SQL 쿼리                    │
 ├─────────────────────────────────────────┤
 │  src/helpers/ (Utilities)               │
-│  - 응답 포매터                           │
-│  - 입력 검증기                           │
+│  - response.php: JSON 응답 + 토큰 검증   │
+│  - validator.php: 입력 검증 + 정렬/페이징 │
+│  - logger.php: 날짜별 로그 시스템         │
+│  - RoundHelper.php: 회차 자동 계산       │
+│  - migrator.php: DB 마이그레이션          │
 ├─────────────────────────────────────────┤
 │  src/config/ (Infrastructure)           │
-│  - DB 연결                              │
-│  - 환경 변수 로드                        │
+│  - DB 연결, .env 로드                    │
+│  - 글로벌 에러/예외 핸들러               │
 └─────────────────────────────────────────┘
 ```
 
-**의존성 방향**: `public/ → api/ → services/ → models/ → config/`
+**의존성 방향**: `pages/ → api/ → services/ → models/ → config/`
 (역방향 의존 금지)
