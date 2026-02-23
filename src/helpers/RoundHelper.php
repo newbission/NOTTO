@@ -46,26 +46,66 @@ class RoundHelper
     }
 
     /**
-     * 다음 회차 생성 (현재 최신 회차 + 1, 추첨일 + 7일)
-     * drawWeekly에서 호출 시 사용
+     * 다음 회차 계산 (날짜 기반 방어 로직 포함)
+     *
+     * - 최신 회차의 draw_date가 아직 안 지났으면 → NOT_YET 에러
+     * - 여러 주가 건너뛰어졌으면 → skipped_rounds 정보 포함
+     * - 정상이면 → 바로 다음 1회차 정보 반환
      */
     public static function getNextRound(): array
     {
         $current = self::getCurrentRoundInfo();
 
         if (!$current) {
-            // rounds 테이블이 비어있으면 에러
             logError('다음 회차 계산 불가 — 기존 회차 없음', [], 'round');
             return ['error' => 'NO_CURRENT_ROUND'];
         }
 
-        $nextRound = $current['round_number'] + 1;
-        $nextDate = new DateTime($current['draw_date'], new DateTimeZone('Asia/Seoul'));
-        $nextDate->modify('+7 days');
+        $tz = new DateTimeZone('Asia/Seoul');
+        $now = new DateTime('now', $tz);
+        $latestDrawDate = new DateTime($current['draw_date'], $tz);
+
+        // 최신 회차의 draw_date가 아직 지나지 않았으면 → 아직 현재 회차 기간 중
+        if ($now->format('Y-m-d') <= $latestDrawDate->format('Y-m-d')) {
+            logInfo('다음 회차 생성 거부 — 현재 회차 기간 중', [
+                'latest_round' => $current['round_number'],
+                'draw_date' => $current['draw_date'],
+                'today' => $now->format('Y-m-d'),
+            ], 'round');
+            return [
+                'error' => 'NOT_YET',
+                'latest_round' => $current['round_number'],
+                'draw_date' => $current['draw_date'],
+                'today' => $now->format('Y-m-d'),
+            ];
+        }
+
+        // draw_date 이후 며칠 경과했는지 계산
+        $daysDiff = (int) $latestDrawDate->diff($now)->days;
+        $weeksPassed = (int) ceil($daysDiff / 7);
+
+        // 최소 1주 (draw_date 다음날 ~ +6일 = 다음 회차)
+        if ($weeksPassed < 1) {
+            $weeksPassed = 1;
+        }
+
+        $skippedRounds = $weeksPassed - 1;
+        $nextRoundNumber = $current['round_number'] + 1;
+        $nextDrawDate = clone $latestDrawDate;
+        $nextDrawDate->modify('+7 days');
+
+        if ($skippedRounds > 0) {
+            logWarn('건너뛴 회차 감지', [
+                'skipped' => $skippedRounds,
+                'expected_next' => $nextRoundNumber,
+                'latest_in_db' => $current['round_number'],
+            ], 'round');
+        }
 
         return [
-            'round_number' => $nextRound,
-            'draw_date' => $nextDate->format('Y-m-d'),
+            'round_number' => $nextRoundNumber,
+            'draw_date' => $nextDrawDate->format('Y-m-d'),
+            'skipped_rounds' => $skippedRounds,
         ];
     }
 }

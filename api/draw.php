@@ -27,7 +27,22 @@ if ($roundNumber <= 0 || $drawDate === '') {
     $nextRound = RoundHelper::getNextRound();
 
     if (isset($nextRound['error'])) {
+        if ($nextRound['error'] === 'NOT_YET') {
+            errorResponse(400, 'NOT_YET', sprintf(
+                '아직 현재 회차(%d회, 추첨일: %s) 기간 중입니다. 추첨일 이후에 다시 시도해주세요.',
+                $nextRound['latest_round'],
+                $nextRound['draw_date']
+            ));
+        }
         errorResponse(500, 'NO_CURRENT_ROUND', 'DB에 기존 회차가 없습니다. 먼저 마이그레이션을 실행해주세요.');
+    }
+
+    // 건너뛴 회차가 있으면 경고 로그
+    if (($nextRound['skipped_rounds'] ?? 0) > 0) {
+        logWarn('건너뛴 회차가 있습니다', [
+            'skipped_rounds' => $nextRound['skipped_rounds'],
+            'creating_round' => $nextRound['round_number'],
+        ], 'api');
     }
 
     $roundNumber = $roundNumber > 0 ? $roundNumber : $nextRound['round_number'];
