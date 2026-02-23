@@ -61,6 +61,7 @@ class DrawService
 
         $processed = 0;
         $failed = 0;
+        $activatedNames = []; // 주간번호 생성 대상
 
         // 청크 분할
         $chunks = array_chunk($pendingNames, $this->chunkSize);
@@ -83,6 +84,10 @@ class DrawService
                         $matched['numbers']
                     );
                     $processed++;
+                    $activatedNames[] = [
+                        'id' => (int) $pendingName['id'],
+                        'name' => $pendingName['name'],
+                    ];
                     logInfo('고유번호 생성 성공', [
                         'name' => $pendingName['name'],
                         'numbers' => $matched['numbers']
@@ -100,12 +105,37 @@ class DrawService
             }
         }
 
+        // 새로 active된 이름들에 대해 최신 회차 주간번호 생성
+        $weeklyGenerated = 0;
+        $weeklyFailed = 0;
+        if (!empty($activatedNames)) {
+            logInfo('주간번호 생성 시작 (새 active 이름)', ['count' => count($activatedNames)], 'draw');
+            foreach ($activatedNames as $activated) {
+                $weeklyResult = $this->generateWeeklyForName($activated['id'], $activated['name']);
+                if (!empty($weeklyResult['generated'])) {
+                    $weeklyGenerated++;
+                } else {
+                    $weeklyFailed++;
+                    logWarn('주간번호 생성 스킵/실패', [
+                        'name' => $activated['name'],
+                        'reason' => $weeklyResult['reason'] ?? 'unknown',
+                    ], 'draw');
+                }
+            }
+            logInfo('주간번호 생성 완료', [
+                'weekly_generated' => $weeklyGenerated,
+                'weekly_failed' => $weeklyFailed,
+            ], 'draw');
+        }
+
         $elapsed = round(microtime(true) - $startTime, 1);
         logInfo('대기열 처리 완료', ['processed' => $processed, 'failed' => $failed, 'elapsed' => $elapsed], 'draw');
 
         return [
             'processed' => $processed,
             'failed' => $failed,
+            'weekly_generated' => $weeklyGenerated,
+            'weekly_failed' => $weeklyFailed,
             'elapsed_seconds' => $elapsed,
         ];
     }
