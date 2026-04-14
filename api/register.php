@@ -54,54 +54,27 @@ if ($existing) {
 $result = $nameModel->create($name);
 logInfo('이름 등록 성공', ['id' => $result['id'], 'name' => $name], 'api');
 
-// DIRECT_REGISTER=true 이면 즉시 고유번호 + 주간번호 생성 (cron 없이 바로 처리)
+// DIRECT_REGISTER=true 이면 즉시 고유번호 + 주간번호 생성 (Gemini 1회 호출)
 if (env('DIRECT_REGISTER') === 'true') {
     logInfo('DIRECT_REGISTER 활성 — 즉시 처리 시작', ['id' => $result['id']], 'api');
 
     require_once __DIR__ . '/../src/services/DrawService.php';
     $service = new DrawService();
 
-    // 1) 고유번호 생성 + active 전환
-    $processResult = $service->processPending();
-    logInfo('DIRECT_REGISTER 고유번호 처리 완료', $processResult, 'api');
+    $directResult = $service->registerDirect((int) $result['id'], $name);
+    logInfo('DIRECT_REGISTER 처리 완료', $directResult, 'api');
 
-    // 2) 최신 회차 주간번호 생성
-    $weeklyResult = $service->generateWeeklyForName((int) $result['id'], $name);
-    logInfo('DIRECT_REGISTER 주간번호 처리 완료', $weeklyResult, 'api');
-
-    // 처리 후 최신 데이터 다시 조회
-    $updated = $nameModel->findByName($name);
-
-    // 최신 회차 주간번호도 조회
-    $weeklyNumbers = null;
-    $roundNumber = null;
-    $pdo = getDatabase();
-    $stmt = $pdo->prepare(
-        "SELECT nr.numbers, r.round_number
-         FROM name_rounds nr
-         JOIN rounds r ON nr.round_id = r.id
-         WHERE nr.name_id = ?
-         ORDER BY r.round_number DESC
-         LIMIT 1"
-    );
-    $stmt->execute([(int) $updated['id']]);
-    $weeklyRow = $stmt->fetch();
-    if ($weeklyRow) {
-        $weeklyNumbers = json_decode($weeklyRow['numbers'], true);
-        $roundNumber = (int) $weeklyRow['round_number'];
+    if (isset($directResult['error'])) {
+        errorResponse(500, $directResult['error'], $directResult['message']);
     }
 
-    $fixedNumbers = $updated['fixed_numbers']
-        ? json_decode($updated['fixed_numbers'], true)
-        : null;
-
     jsonResponse([
-        'id' => (int) $updated['id'],
-        'name' => $updated['name'],
-        'status' => $updated['status'],
-        'fixed_numbers' => $fixedNumbers,
-        'weekly_numbers' => $weeklyNumbers,
-        'round_number' => $roundNumber,
+        'id' => $directResult['id'],
+        'name' => $directResult['name'],
+        'status' => $directResult['status'],
+        'fixed_numbers' => $directResult['fixed_numbers'],
+        'weekly_numbers' => $directResult['weekly_numbers'],
+        'round_number' => $directResult['round_number'],
         'message' => '등록이 완료되었습니다. 고유번호와 주간번호가 생성되었습니다!',
     ], [], 201);
 }

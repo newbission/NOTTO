@@ -38,6 +38,98 @@ class DrawService
     }
 
     /**
+     * 즉시 등록: Gemini 1회 호출로 고유번호 + 주간번호 동시 생성
+     * (DIRECT_REGISTER=true 시 register.php에서 호출)
+     */
+    public function registerDirect(int $nameId, string $name): array
+    {
+        $startTime = microtime(true);
+        logInfo('즉시 등록 시작', ['name_id' => $nameId, 'name' => $name], 'draw');
+
+        // 프롬프트 조회
+        $fixedPrompt = $this->prompt->getActive('fixed');
+        $weeklyPrompt = $this->prompt->getActive('weekly');
+
+        if (!$fixedPrompt || !$weeklyPrompt) {
+            $missing = [];
+            if (!$fixedPrompt) $missing[] = 'fixed';
+            if (!$weeklyPrompt) $missing[] = 'weekly';
+            logError('즉시 등록 실패 — 프롬프트 누락', ['missing' => $missing], 'draw');
+            return ['error' => 'NO_ACTIVE_PROMPT', 'message' => '활성 프롬프트가 없습니다: ' . implode(', ', $missing)];
+        }
+
+        // Gemini 1회 호출로 두 번호 동시 생성
+        $result = $this->gemini->generateBothNumbers(
+            $fixedPrompt['content'],
+            $weeklyPrompt['content'],
+            $name
+        );
+
+        if ($result === null) {
+            logError('즉시 등록 실패 — Gemini 응답 없음', ['name' => $name], 'draw');
+            // 실패 시에도 pending 상태 유지 (향후 processPending에서 재처리 가능)
+            return [
+                'id' => $nameId,
+                'name' => $name,
+                'status' => 'pending',
+                'fixed_numbers' => null,
+                'weekly_numbers' => null,
+                'round_number' => null,
+            ];
+        }
+
+        // 1) 고유번호 저장 + active 전환
+        $this->name->activateWithFixedNumbers($nameId, $result['fixed_numbers']);
+        logInfo('즉시 등록 — 고유번호 생성', [
+            'name' => $name,
+            'fixed' => $result['fixed_numbers'],
+        ], 'draw');
+
+        // 2) 최신 회차 주간번호 저장
+        $weeklyNumbers = $result['weekly_numbers'];
+        $roundNumber = null;
+        $latestRound = $this->round->getLatest();
+
+        if ($latestRound) {
+            $roundId = (int) $latestRound['id'];
+            $roundNumber = (int) $latestRound['round_number'];
+
+            // 이미 해당 회차에 번호가 있는지 확인
+            $pdo = getDatabase();
+            $stmt = $pdo->prepare("SELECT id FROM name_rounds WHERE name_id = ? AND round_id = ?");
+            $stmt->execute([$nameId, $roundId]);
+            if (!$stmt->fetch()) {
+                $this->round->saveNameNumbers($nameId, $roundId, $weeklyNumbers);
+                logInfo('즉시 등록 — 주간번호 저장', [
+                    'name' => $name,
+                    'round' => $roundNumber,
+                    'weekly' => $weeklyNumbers,
+                ], 'draw');
+            } else {
+                logInfo('즉시 등록 — 주간번호 이미 존재', ['name' => $name, 'round' => $roundNumber], 'draw');
+            }
+        } else {
+            logWarn('즉시 등록 — 회차 없음, 주간번호 스킵', ['name' => $name], 'draw');
+            $weeklyNumbers = null;
+        }
+
+        $elapsed = round(microtime(true) - $startTime, 1);
+        logInfo('즉시 등록 완료', [
+            'name' => $name,
+            'elapsed' => $elapsed,
+        ], 'draw');
+
+        return [
+            'id' => $nameId,
+            'name' => $name,
+            'status' => 'active',
+            'fixed_numbers' => $result['fixed_numbers'],
+            'weekly_numbers' => $weeklyNumbers,
+            'round_number' => $roundNumber,
+        ];
+    }
+
+    /**
      * 대기열 처리: pending 이름에 고유번호 생성 + active 전환
      */
     public function processPending(): array
