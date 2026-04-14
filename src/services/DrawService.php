@@ -150,7 +150,7 @@ class DrawService
 
         // 대기열에 pending 이름이 있으면 먼저 처리
         $pendingResult = $this->processPending();
-        if ($pendingResult['processed'] ?? 0 > 0) {
+        if (($pendingResult['processed'] ?? 0) > 0) {
             logInfo('주간 생성 전 대기열 처리 완료', $pendingResult, 'draw');
         }
 
