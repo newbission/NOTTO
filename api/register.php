@@ -71,11 +71,37 @@ if (env('DIRECT_REGISTER') === 'true') {
 
     // 처리 후 최신 데이터 다시 조회
     $updated = $nameModel->findByName($name);
+
+    // 최신 회차 주간번호도 조회
+    $weeklyNumbers = null;
+    $roundNumber = null;
+    $pdo = getDatabase();
+    $stmt = $pdo->prepare(
+        "SELECT nr.numbers, r.round_number
+         FROM name_rounds nr
+         JOIN rounds r ON nr.round_id = r.id
+         WHERE nr.name_id = ?
+         ORDER BY r.round_number DESC
+         LIMIT 1"
+    );
+    $stmt->execute([(int) $updated['id']]);
+    $weeklyRow = $stmt->fetch();
+    if ($weeklyRow) {
+        $weeklyNumbers = json_decode($weeklyRow['numbers'], true);
+        $roundNumber = (int) $weeklyRow['round_number'];
+    }
+
+    $fixedNumbers = $updated['fixed_numbers']
+        ? json_decode($updated['fixed_numbers'], true)
+        : null;
+
     jsonResponse([
         'id' => (int) $updated['id'],
         'name' => $updated['name'],
         'status' => $updated['status'],
-        'fixed_numbers' => $updated['fixed_numbers'] ?? null,
+        'fixed_numbers' => $fixedNumbers,
+        'weekly_numbers' => $weeklyNumbers,
+        'round_number' => $roundNumber,
         'message' => '등록이 완료되었습니다. 고유번호와 주간번호가 생성되었습니다!',
     ], [], 201);
 }
