@@ -271,14 +271,16 @@
 
             showToast(`"${searchName}" 등록 완료!`, 'success');
 
-            // 등록 완료 시 방금 등록한 카드를 프롬프트 영역에 그대로 띄워주기
+            // 등록 완료 시 서버 데이터로 카드를 즉시 표시
             const newCardUser = {
                 id: json.data.id,
                 name: json.data.name,
                 status: json.data.status || 'pending',
-                weekly_numbers: null,
-                round_number: null,
+                weekly_numbers: json.data.weekly_numbers || null,
+                round_number: json.data.round_number || null,
+                fixed_numbers: json.data.fixed_numbers || null,
                 matched_count: null,
+                participation_count: json.data.weekly_numbers ? 1 : 0,
             };
             showExactMatchPrompt(newCardUser);
 
