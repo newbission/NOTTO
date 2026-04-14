@@ -15,10 +15,14 @@ require_once __DIR__ . '/../src/helpers/response.php';
 require_once __DIR__ . '/../src/helpers/logger.php';
 require_once __DIR__ . '/../src/models/Prompt.php';
 
-requireMethod('GET');
+// GET: list, activate / POST: create
+$method = $_SERVER['REQUEST_METHOD'];
+if (!in_array($method, ['GET', 'POST'], true)) {
+    errorResponse(405, 'METHOD_NOT_ALLOWED', '허용되지 않은 요청 방식입니다.');
+}
 requireAdminToken();
 
-$action = $_GET['action'] ?? 'list';
+$action = $_GET['action'] ?? $_POST['action'] ?? 'list';
 $prompt = new Prompt();
 
 logInfo('프롬프트 관리 API 호출', ['action' => $action], 'api');
@@ -38,9 +42,9 @@ switch ($action) {
         jsonResponse($data);
 
     case 'create':
-        $type = $_GET['type'] ?? '';
-        $content = $_GET['content'] ?? '';
-        $activate = ($_GET['activate'] ?? 'false') === 'true';
+        $type = $_POST['type'] ?? $_GET['type'] ?? '';
+        $content = $_POST['content'] ?? $_GET['content'] ?? '';
+        $activate = ($_POST['activate'] ?? $_GET['activate'] ?? 'false') === 'true';
 
         if (!in_array($type, ['weekly', 'fixed'], true)) {
             errorResponse(400, 'INVALID_TYPE', 'type은 weekly 또는 fixed만 가능합니다.');

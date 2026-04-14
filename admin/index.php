@@ -5,82 +5,314 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NOTTO 관리자 도구</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e4e6eb; padding: 24px; max-width: 960px; margin: 0 auto; }
+        h1 { font-size: 1.8rem; margin-bottom: 8px; background: linear-gradient(135deg, #a29bfe, #ffd32a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        h2 { font-size: 1.2rem; margin-bottom: 12px; color: #a29bfe; }
+        h3 { font-size: 1rem; margin: 16px 0 8px; color: #8b95a5; }
+
+        .subtitle { color: #8b95a5; margin-bottom: 24px; font-size: 0.9rem; }
+        hr { border: none; border-top: 1px solid #2a3448; margin: 24px 0; }
+
+        /* Token Input */
+        .token-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 24px; padding: 16px; background: #141a2a; border-radius: 12px; border: 1px solid #2a3448; }
+        .token-bar label { font-weight: 600; font-size: 0.9rem; white-space: nowrap; }
+        .token-bar input { flex: 1; padding: 8px 12px; background: #1a2235; border: 1px solid #2a3448; border-radius: 8px; color: #e4e6eb; font-size: 0.9rem; }
+
+        /* Cards */
+        .card { background: #141a2a; border: 1px solid #2a3448; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+        .card:hover { border-color: #6c5ce7; }
+
+        /* Buttons */
+        .btn { padding: 10px 20px; font-size: 0.9rem; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: white; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(108,92,231,0.4); }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-secondary { background: #2a3448; color: #e4e6eb; }
+        .btn-secondary:hover { background: #3a4868; }
+        .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Forms */
+        textarea { width: 100%; min-height: 120px; padding: 12px; background: #1a2235; border: 1px solid #2a3448; border-radius: 8px; color: #e4e6eb; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; resize: vertical; }
+        textarea:focus { border-color: #6c5ce7; outline: none; }
+        select { padding: 8px 12px; background: #1a2235; border: 1px solid #2a3448; border-radius: 8px; color: #e4e6eb; font-size: 0.9rem; }
+
+        /* Result output */
+        .result-output { background: #1a2235; border: 1px solid #2a3448; border-radius: 8px; padding: 16px; min-height: 80px; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #8b95a5; max-height: 300px; overflow-y: auto; }
+
+        /* Prompt history */
+        .prompt-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px; background: #1a2235; border-radius: 8px; margin-bottom: 8px; gap: 12px; }
+        .prompt-item.active { border: 1px solid #2ecc71; }
+        .prompt-info { flex: 1; min-width: 0; }
+        .prompt-meta { font-size: 0.75rem; color: #5a6477; margin-bottom: 4px; }
+        .prompt-content { font-size: 0.8rem; color: #8b95a5; white-space: pre-wrap; word-break: break-all; max-height: 60px; overflow: hidden; }
+        .prompt-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 600; }
+        .badge-active { background: rgba(46,204,113,0.15); color: #2ecc71; }
+        .badge-inactive { background: rgba(139,149,165,0.15); color: #8b95a5; }
+        .badge-weekly { background: rgba(108,92,231,0.15); color: #a29bfe; }
+        .badge-fixed { background: rgba(255,211,42,0.15); color: #ffd32a; }
+
+        .flex-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 640px) { .section-grid { grid-template-columns: 1fr; } }
+
+        .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; }
+        .tab { padding: 8px 16px; border-radius: 8px 8px 0 0; background: #1a2235; color: #8b95a5; cursor: pointer; font-size: 0.85rem; font-weight: 600; border: 1px solid transparent; border-bottom: none; }
+        .tab.active { background: #141a2a; color: #a29bfe; border-color: #2a3448; }
+    </style>
 </head>
 
-<body style="font-family: sans-serif; padding: 20px;">
-    <h1>NOTTO 임시 관리자 페이지</h1>
+<body>
+    <h1>🎱 NOTTO Admin</h1>
+    <p class="subtitle">관리자 도구</p>
 
-    <div>
-        <label>
-            <strong>관리자 토큰(Admin Token):</strong>
-            <input type="password" id="adminToken" style="padding: 5px; width: 250px;">
-        </label>
+    <!-- Token -->
+    <div class="token-bar">
+        <label>🔑 Admin Token:</label>
+        <input type="password" id="adminToken" placeholder="관리자 토큰 입력...">
     </div>
 
-    <hr style="margin: 20px 0;">
-
-    <div style="margin-bottom: 20px;">
-        <h2>1. 대기열 등록 (Pending 처리)</h2>
-        <p>대기열에 있는 이름들의 고유번호를 생성하고 Active 상태로 변경합니다.</p>
-        <button onclick="processPending()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">대기열 등록</button>
+    <!-- Actions -->
+    <div class="section-grid">
+        <div class="card">
+            <h2>📋 대기열 등록</h2>
+            <p style="font-size:0.85rem; color:#8b95a5; margin-bottom:12px;">Pending → Active + 고유번호 생성</p>
+            <button class="btn btn-primary" onclick="processPending()">대기열 처리</button>
+        </div>
+        <div class="card">
+            <h2>🎰 다음 회차 추첨</h2>
+            <p style="font-size:0.85rem; color:#8b95a5; margin-bottom:12px;">새 회차 생성 + 주간번호 일괄 생성</p>
+            <button class="btn btn-primary" onclick="drawWeekly()">추첨 실행</button>
+        </div>
     </div>
 
-    <hr style="margin: 20px 0;">
+    <hr>
 
-    <div style="margin-bottom: 20px;">
-        <h2>2. 다음 회차 추첨 (Draw)</h2>
-        <p>현재 등록된 Active 이름들 중에서 다음 회차 당첨자를 뽑습니다.</p>
-        <button onclick="drawWeekly()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">다음 회차 추첨</button>
+    <!-- Prompt Management -->
+    <div class="card">
+        <h2>📝 프롬프트 관리</h2>
+
+        <!-- Tab Bar -->
+        <div class="tab-bar">
+            <div class="tab active" data-tab="current" onclick="switchTab('current')">현재 활성</div>
+            <div class="tab" data-tab="create" onclick="switchTab('create')">새로 만들기</div>
+            <div class="tab" data-tab="history" onclick="switchTab('history')">히스토리</div>
+        </div>
+
+        <!-- Current Active Prompts -->
+        <div id="tab-current">
+            <div id="active-prompts-container">
+                <p style="color:#5a6477;">토큰 입력 후 "현재 활성" 탭을 클릭하면 로드됩니다.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="loadPrompts()" style="margin-top:12px;">🔄 새로고침</button>
+        </div>
+
+        <!-- Create New Prompt -->
+        <div id="tab-create" style="display:none;">
+            <div class="flex-row" style="margin-bottom:12px;">
+                <select id="prompt-type">
+                    <option value="weekly">weekly (주간번호)</option>
+                    <option value="fixed">fixed (고유번호)</option>
+                </select>
+                <label style="font-size:0.85rem;">
+                    <input type="checkbox" id="prompt-activate" checked> 생성 즉시 활성화
+                </label>
+            </div>
+            <textarea id="prompt-content" placeholder="프롬프트 내용을 입력하세요... ({names} 플레이스홀더 사용)"></textarea>
+            <button class="btn btn-primary" onclick="createPrompt()" style="margin-top:12px;">프롬프트 생성</button>
+        </div>
+
+        <!-- History -->
+        <div id="tab-history" style="display:none;">
+            <div id="history-container">
+                <p style="color:#5a6477;">"히스토리" 탭을 클릭하면 로드됩니다.</p>
+            </div>
+        </div>
     </div>
 
-    <hr style="margin: 20px 0;">
+    <hr>
 
-    <h2>실행 결과</h2>
-    <pre id="resultOutput"
-        style="background: #f4f4f4; padding: 15px; border: 1px solid #ddd; min-height: 100px; white-space: pre-wrap; font-family: monospace;"></pre>
+    <!-- Result Output -->
+    <h2>📤 실행 결과</h2>
+    <pre class="result-output" id="resultOutput">결과가 여기 표시됩니다...</pre>
 
     <script>
-        async function runApi(url) {
-            const token = document.getElementById('adminToken').value.trim();
-            const output = document.getElementById('resultOutput');
+        const API_BASE = '/api';
 
-            if (!token) {
-                alert('관리자 토큰(Admin Token)을 입력해주세요.');
-                document.getElementById('adminToken').focus();
-                return;
-            }
+        function getToken() {
+            const t = document.getElementById('adminToken').value.trim();
+            if (!t) { alert('관리자 토큰을 입력해주세요.'); document.getElementById('adminToken').focus(); return null; }
+            return t;
+        }
 
-            output.textContent = '요청 중... 기다려주세요.';
+        function showResult(data) {
+            document.getElementById('resultOutput').textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+        }
+
+        // ─── API Calls ───
+
+        async function runApi(url, method = 'POST', bodyData = null) {
+            const token = getToken();
+            if (!token) return null;
+            showResult('요청 중... 기다려주세요.');
 
             try {
-                const formData = new URLSearchParams();
-                formData.append('token', token);
+                const opts = { method, headers: {} };
+                if (method === 'POST' && bodyData) {
+                    const fd = new URLSearchParams();
+                    fd.append('token', token);
+                    for (const [k, v] of Object.entries(bodyData)) fd.append(k, v);
+                    opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+                    opts.body = fd.toString();
+                } else if (method === 'POST') {
+                    const fd = new URLSearchParams();
+                    fd.append('token', token);
+                    opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+                    opts.body = fd.toString();
+                } else {
+                    url += (url.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
+                }
 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: formData.toString()
-                });
-
+                const response = await fetch(url, opts);
                 const data = await response.json();
-                output.textContent = JSON.stringify(data, null, 2);
+                showResult(data);
+                return data;
             } catch (error) {
-                output.textContent = '통신 에러가 발생했습니다: ' + error.message;
+                showResult('통신 에러: ' + error.message);
+                return null;
             }
         }
 
         function processPending() {
-            if (confirm('대기열에 있는 이름들을 등록하시겠습니까?')) {
-                runApi('/api/process-pending.php');
-            }
+            if (confirm('대기열에 있는 이름들을 등록하시겠습니까?')) runApi(`${API_BASE}/process-pending.php`);
         }
 
         function drawWeekly() {
-            if (confirm('다음 회차 당첨자를 추첨하시겠습니까?')) {
-                runApi('/api/draw.php');
+            if (confirm('다음 회차 추첨을 실행하시겠습니까?')) runApi(`${API_BASE}/draw.php`);
+        }
+
+        // ─── Tabs ───
+
+        function switchTab(tabName) {
+            document.querySelectorAll('[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
+            document.getElementById('tab-current').style.display = tabName === 'current' ? 'block' : 'none';
+            document.getElementById('tab-create').style.display = tabName === 'create' ? 'block' : 'none';
+            document.getElementById('tab-history').style.display = tabName === 'history' ? 'block' : 'none';
+
+            if (tabName === 'current' || tabName === 'history') loadPrompts();
+        }
+
+        // ─── Prompts ───
+
+        let allPrompts = [];
+
+        async function loadPrompts() {
+            const token = getToken();
+            if (!token) return;
+
+            try {
+                const resp = await fetch(`${API_BASE}/prompts.php?token=${encodeURIComponent(token)}&action=list`);
+                const json = await resp.json();
+                if (!json.success) { showResult(json); return; }
+                allPrompts = json.data;
+                renderActivePrompts();
+                renderHistory();
+            } catch (e) {
+                showResult('프롬프트 로드 실패: ' + e.message);
             }
+        }
+
+        function renderActivePrompts() {
+            const container = document.getElementById('active-prompts-container');
+            const activeFixed = allPrompts.find(p => p.type === 'fixed' && p.is_active);
+            const activeWeekly = allPrompts.find(p => p.type === 'weekly' && p.is_active);
+
+            container.innerHTML = `
+                <h3>Weekly (주간번호) 프롬프트</h3>
+                ${activeWeekly ? renderPromptCard(activeWeekly) : '<p style="color:#e74c3c;">⚠️ 활성 weekly 프롬프트 없음</p>'}
+                <h3>Fixed (고유번호) 프롬프트</h3>
+                ${activeFixed ? renderPromptCard(activeFixed) : '<p style="color:#e74c3c;">⚠️ 활성 fixed 프롬프트 없음</p>'}
+            `;
+        }
+
+        function renderPromptCard(p) {
+            return `<div class="prompt-item active">
+                <div class="prompt-info">
+                    <div class="prompt-meta">
+                        <span class="badge badge-${p.type}">${p.type}</span>
+                        <span class="badge badge-active">활성</span>
+                        ID: ${p.id} · ${p.created_at}
+                    </div>
+                    <div class="prompt-content">${escapeHtml(p.content)}</div>
+                </div>
+            </div>`;
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-container');
+            if (allPrompts.length === 0) {
+                container.innerHTML = '<p style="color:#5a6477;">프롬프트가 없습니다.</p>';
+                return;
+            }
+
+            container.innerHTML = allPrompts.map(p => `
+                <div class="prompt-item ${p.is_active ? 'active' : ''}">
+                    <div class="prompt-info">
+                        <div class="prompt-meta">
+                            <span class="badge badge-${p.type}">${p.type}</span>
+                            ${p.is_active ? '<span class="badge badge-active">활성</span>' : '<span class="badge badge-inactive">비활성</span>'}
+                            ID: ${p.id} · ${p.created_at}
+                        </div>
+                        <div class="prompt-content">${escapeHtml(p.content)}</div>
+                    </div>
+                    <div class="prompt-actions">
+                        ${!p.is_active ? `<button class="btn btn-secondary btn-sm" onclick="activatePrompt(${p.id})">활성화</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function createPrompt() {
+            const type = document.getElementById('prompt-type').value;
+            const content = document.getElementById('prompt-content').value.trim();
+            const activate = document.getElementById('prompt-activate').checked;
+
+            if (!content) { alert('프롬프트 내용을 입력해주세요.'); return; }
+
+            const result = await runApi(`${API_BASE}/prompts.php`, 'POST', {
+                action: 'create',
+                type: type,
+                content: content,
+                activate: activate ? 'true' : 'false',
+            });
+
+            if (result && result.success) {
+                alert('프롬프트가 생성되었습니다!');
+                document.getElementById('prompt-content').value = '';
+                loadPrompts();
+            }
+        }
+
+        async function activatePrompt(id) {
+            if (!confirm(`프롬프트 #${id}을 활성화하시겠습니까? 같은 타입의 기존 활성 프롬프트는 비활성화됩니다.`)) return;
+
+            const token = getToken();
+            if (!token) return;
+
+            const result = await runApi(`${API_BASE}/prompts.php?action=activate&id=${id}`, 'GET');
+            if (result && result.success) {
+                loadPrompts();
+            }
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
         }
     </script>
 </body>
