@@ -136,14 +136,12 @@ PROMPT;
         ];
 
         $url = "{$this->baseUrl}/{$this->model}:generateContent?key={$this->apiKey}";
-
         $response = $this->httpPostWithRetry($url, $requestBody);
 
         if ($response === null) {
             return null;
         }
 
-        // 응답 검증
         if (!isset($response['fixed_numbers'], $response['weekly_numbers'])) {
             logError('Gemini 통합 응답 형식 오류', ['response' => $response], 'gemini');
             return null;
@@ -166,10 +164,7 @@ PROMPT;
             'weekly' => $weekly,
         ], 'gemini');
 
-        return [
-            'fixed_numbers' => $fixed,
-            'weekly_numbers' => $weekly,
-        ];
+        return ['fixed_numbers' => $fixed, 'weekly_numbers' => $weekly];
     }
 
     // ─── HTTP 통신 ───
@@ -300,55 +295,6 @@ PROMPT;
         $validNumbers = array_slice($validNumbers, 0, 6);
         sort($validNumbers);
 
-        // 패턴 감지
-        if ($this->hasSuspiciousPattern($validNumbers)) {
-            logWarn('의심 패턴 감지 — 번호 무효 처리', ['numbers' => $validNumbers], 'gemini');
-            return null;
-        }
-
         return $validNumbers;
-    }
-
-    /**
-     * 의심스러운 패턴 감지
-     *
-     * - 등차수열 (모든 차이가 동일: [4,8,12,16,20,24])
-     * - 연속 5개 이상 ([1,2,3,4,5,40])
-     */
-    private function hasSuspiciousPattern(array $numbers): bool
-    {
-        if (count($numbers) < 6) {
-            return false;
-        }
-
-        // 차이값 계산
-        $diffs = [];
-        for ($i = 1; $i < count($numbers); $i++) {
-            $diffs[] = $numbers[$i] - $numbers[$i - 1];
-        }
-
-        // 등차수열 감지 (모든 차이가 동일)
-        if (count(array_unique($diffs)) === 1) {
-            logInfo('등차수열 패턴 감지', ['numbers' => $numbers, 'diff' => $diffs[0]], 'gemini');
-            return true;
-        }
-
-        // 연속 5개 이상 감지 (차이가 1인 것이 4개 이상 연속)
-        $consecutiveOnes = 0;
-        $maxConsecutiveOnes = 0;
-        foreach ($diffs as $d) {
-            if ($d === 1) {
-                $consecutiveOnes++;
-                $maxConsecutiveOnes = max($maxConsecutiveOnes, $consecutiveOnes);
-            } else {
-                $consecutiveOnes = 0;
-            }
-        }
-        if ($maxConsecutiveOnes >= 4) { // 5개 연속 = diff가 4번 연속 1
-            logInfo('연속번호 패턴 감지', ['numbers' => $numbers, 'consecutive' => $maxConsecutiveOnes + 1], 'gemini');
-            return true;
-        }
-
-        return false;
     }
 }

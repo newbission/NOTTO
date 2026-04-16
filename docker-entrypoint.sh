@@ -45,6 +45,16 @@ else
     php /var/www/html/src/helpers/migrator.php
 fi
 
+# 현재 회차 자동 생성 (기준점에서 동적 계산)
+echo "📅 현재 회차 확인..."
+php -r "
+    require '/var/www/html/src/config/database.php';
+    require '/var/www/html/src/helpers/RoundHelper.php';
+    \$result = RoundHelper::ensureCurrentRound();
+    \$status = \$result['created'] ? '🆕 생성됨' : '✅ 이미 존재';
+    echo \"\$status: {\$result['round_number']}회 ({\$result['draw_date']})\" . PHP_EOL;
+"
+
 echo ""
 echo "🚀 Apache 시작"
 exec apache2-foreground

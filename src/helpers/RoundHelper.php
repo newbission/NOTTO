@@ -5,8 +5,13 @@ declare(strict_types=1);
 /**
  * RoundHelper
  *
- * 로또 회차 관리 유틸리티 (DB 기반)
- * rounds 테이블에서 최신 회차를 조회하여 현재 회차 정보를 제공
+ * 로또 회차 관리 유틸리티
+ *
+ * 기준점: 로또 6/45 1회차 = 2002-12-07 (토요일)
+ * 매주 토요일 추첨, 회차 = (토요일까지의 주 수) + 1
+ *
+ * - 현재 회차는 기준점에서 동적 계산
+ * - DB에 회차가 없으면 현재 회차를 자동 생성
  */
 
 require_once __DIR__ . '/../config/database.php';
@@ -14,43 +19,141 @@ require_once __DIR__ . '/logger.php';
 
 class RoundHelper
 {
+    /** 1회차 추첨일 (토요일) */
+    private const EPOCH_DATE = '2002-12-07';
+    private const EPOCH_ROUND = 1;
+
     /**
-     * 현재 (최신) 회차 정보 조회
-     * rounds 테이블에서 가장 큰 round_number를 가진 레코드 반환
+     * 기준점에서 특정 날짜의 회차를 계산
+     * 로또는 매주 토요일 추첨 → 해당 주의 토요일 기준으로 회차 결정
+     */
+    public static function calculateRoundForDate(DateTime $date): array
+    {
+        $tz = new DateTimeZone('Asia/Seoul');
+        $epoch = new DateTime(self::EPOCH_DATE, $tz);
+
+        // 해당 날짜가 속한 주의 토요일 계산
+        $target = clone $date;
+        $dayOfWeek = (int) $target->format('w'); // 0=일, 6=토
+        if ($dayOfWeek !== 6) {
+            // 이번 주 토요일로 이동
+            $daysToSaturday = (6 - $dayOfWeek) % 7;
+            if ($daysToSaturday === 0) $daysToSaturday = 7; // 일요일이면 다음 토요일
+            // 일요일(0)은 지난 주 추첨이 끝난 상태 → 다음 토요일
+            if ($dayOfWeek === 0) {
+                $target->modify('+6 days');
+            } else {
+                $target->modify("+{$daysToSaturday} days");
+            }
+        }
+
+        $diffDays = (int) $epoch->diff($target)->days;
+        $roundNumber = (int) ($diffDays / 7) + self::EPOCH_ROUND;
+
+        return [
+            'round_number' => $roundNumber,
+            'draw_date' => $target->format('Y-m-d'),
+        ];
+    }
+
+    /**
+     * 현재 (이번 주) 회차 정보 계산
+     */
+    public static function getCurrentRoundCalculated(): array
+    {
+        $tz = new DateTimeZone('Asia/Seoul');
+        $now = new DateTime('now', $tz);
+        return self::calculateRoundForDate($now);
+    }
+
+    /**
+     * 현재 회차 정보 조회 (DB 기반, 없으면 계산값 반환)
      */
     public static function getCurrentRoundInfo(): ?array
     {
         $pdo = getDatabase();
         $stmt = $pdo->query(
-            "SELECT round_number, draw_date, winning_numbers, bonus_number
+            "SELECT id, round_number, draw_date, winning_numbers, bonus_number
              FROM rounds ORDER BY round_number DESC LIMIT 1"
         );
         $result = $stmt->fetch();
 
+        // DB에 회차가 없으면 계산값 반환
         if (!$result) {
-            logWarn('회차 정보 없음 — rounds 테이블이 비어있음', [], 'round');
-            return null;
+            $calculated = self::getCurrentRoundCalculated();
+            logWarn('rounds 테이블 비어있음 — 계산값 사용', $calculated, 'round');
+            return [
+                'round_number' => $calculated['round_number'],
+                'draw_date' => $calculated['draw_date'],
+                'is_draw_day' => false,
+                'has_drawn' => false,
+                'from_db' => false,
+            ];
         }
 
-        $now = new DateTime('now', new DateTimeZone('Asia/Seoul'));
+        $tz = new DateTimeZone('Asia/Seoul');
+        $now = new DateTime('now', $tz);
         $drawDate = $result['draw_date'];
         $isDrawDay = $now->format('Y-m-d') === $drawDate;
         $hasDrawn = $result['winning_numbers'] !== null;
 
         return [
+            'id' => (int) $result['id'],
             'round_number' => (int) $result['round_number'],
             'draw_date' => $drawDate,
             'is_draw_day' => $isDrawDay,
             'has_drawn' => $hasDrawn,
+            'from_db' => true,
         ];
     }
 
     /**
-     * 다음 회차 계산 (날짜 기반 방어 로직 포함)
-     *
-     * - 최신 회차의 draw_date가 아직 안 지났으면 → NOT_YET 에러
-     * - 여러 주가 건너뛰어졌으면 → skipped_rounds 정보 포함
-     * - 정상이면 → 바로 다음 1회차 정보 반환
+     * 현재 회차가 DB에 없으면 자동 생성
+     * (docker-entrypoint 또는 register 시 호출)
+     */
+    public static function ensureCurrentRound(): array
+    {
+        $pdo = getDatabase();
+        $calculated = self::getCurrentRoundCalculated();
+        $roundNumber = $calculated['round_number'];
+        $drawDate = $calculated['draw_date'];
+
+        // 이미 존재하는지 확인
+        $stmt = $pdo->prepare("SELECT id, round_number, draw_date FROM rounds WHERE round_number = ?");
+        $stmt->execute([$roundNumber]);
+        $existing = $stmt->fetch();
+
+        if ($existing) {
+            return [
+                'id' => (int) $existing['id'],
+                'round_number' => (int) $existing['round_number'],
+                'draw_date' => $existing['draw_date'],
+                'created' => false,
+            ];
+        }
+
+        // 새 회차 생성
+        $stmt = $pdo->prepare(
+            "INSERT INTO rounds (round_number, draw_date) VALUES (?, ?)"
+        );
+        $stmt->execute([$roundNumber, $drawDate]);
+        $newId = (int) $pdo->lastInsertId();
+
+        logInfo('현재 회차 자동 생성', [
+            'round_number' => $roundNumber,
+            'draw_date' => $drawDate,
+        ], 'round');
+
+        return [
+            'id' => $newId,
+            'round_number' => $roundNumber,
+            'draw_date' => $drawDate,
+            'created' => true,
+        ];
+    }
+
+    /**
+     * 다음 회차 계산 (주간 추첨용)
      */
     public static function getNextRound(): array
     {
@@ -84,7 +187,6 @@ class RoundHelper
         $daysDiff = (int) $latestDrawDate->diff($now)->days;
         $weeksPassed = (int) ceil($daysDiff / 7);
 
-        // 최소 1주 (draw_date 다음날 ~ +6일 = 다음 회차)
         if ($weeksPassed < 1) {
             $weeksPassed = 1;
         }

@@ -15,6 +15,7 @@ require_once __DIR__ . '/../models/Round.php';
 require_once __DIR__ . '/../models/Prompt.php';
 require_once __DIR__ . '/GeminiService.php';
 require_once __DIR__ . '/../helpers/logger.php';
+require_once __DIR__ . '/../helpers/RoundHelper.php';
 
 class DrawService
 {
@@ -85,32 +86,26 @@ class DrawService
             'fixed' => $result['fixed_numbers'],
         ], 'draw');
 
-        // 2) 최신 회차 주간번호 저장
+        // 2) 현재 회차 자동 확보 + 주간번호 저장
         $weeklyNumbers = $result['weekly_numbers'];
         $roundNumber = null;
-        $latestRound = $this->round->getLatest();
+        $currentRound = RoundHelper::ensureCurrentRound();
+        $roundId = (int) $currentRound['id'];
+        $roundNumber = (int) $currentRound['round_number'];
 
-        if ($latestRound) {
-            $roundId = (int) $latestRound['id'];
-            $roundNumber = (int) $latestRound['round_number'];
-
-            // 이미 해당 회차에 번호가 있는지 확인
-            $pdo = getDatabase();
-            $stmt = $pdo->prepare("SELECT id FROM name_rounds WHERE name_id = ? AND round_id = ?");
-            $stmt->execute([$nameId, $roundId]);
-            if (!$stmt->fetch()) {
-                $this->round->saveNameNumbers($nameId, $roundId, $weeklyNumbers);
-                logInfo('즉시 등록 — 주간번호 저장', [
-                    'name' => $name,
-                    'round' => $roundNumber,
-                    'weekly' => $weeklyNumbers,
-                ], 'draw');
-            } else {
-                logInfo('즉시 등록 — 주간번호 이미 존재', ['name' => $name, 'round' => $roundNumber], 'draw');
-            }
+        // 이미 해당 회차에 번호가 있는지 확인
+        $pdo = getDatabase();
+        $stmt = $pdo->prepare("SELECT id FROM name_rounds WHERE name_id = ? AND round_id = ?");
+        $stmt->execute([$nameId, $roundId]);
+        if (!$stmt->fetch()) {
+            $this->round->saveNameNumbers($nameId, $roundId, $weeklyNumbers);
+            logInfo('즉시 등록 — 주간번호 저장', [
+                'name' => $name,
+                'round' => $roundNumber,
+                'weekly' => $weeklyNumbers,
+            ], 'draw');
         } else {
-            logWarn('즉시 등록 — 회차 없음, 주간번호 스킵', ['name' => $name], 'draw');
-            $weeklyNumbers = null;
+            logInfo('즉시 등록 — 주간번호 이미 존재', ['name' => $name, 'round' => $roundNumber], 'draw');
         }
 
         $elapsed = round(microtime(true) - $startTime, 1);

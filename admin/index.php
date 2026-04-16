@@ -136,6 +136,18 @@
 
     <hr>
 
+    <!-- DB Management -->
+    <div class="card" style="border-color:#e74c3c33;">
+        <h2>🗄️ DB 관리</h2>
+        <div class="flex-row">
+            <button class="btn btn-secondary" onclick="backupDB()">📥 백업 다운로드</button>
+            <button class="btn btn-danger" onclick="resetDB()">🗑️ 전체 초기화</button>
+        </div>
+        <p style="font-size:0.75rem; color:#5a6477; margin-top:8px;">초기화: 모든 테이블 삭제 → schema.sql 재실행 → 현재 회차 자동 생성</p>
+    </div>
+
+    <hr>
+
     <!-- Result Output -->
     <h2>📤 실행 결과</h2>
     <pre class="result-output" id="resultOutput">결과가 여기 표시됩니다...</pre>
@@ -193,6 +205,24 @@
 
         function drawWeekly() {
             if (confirm('다음 회차 추첨을 실행하시겠습니까?')) runApi(`${API_BASE}/draw.php`);
+        }
+
+        // ─── DB Management ───
+
+        function backupDB() {
+            const token = getToken();
+            if (!token) return;
+            // 파일 다운로드 트리거
+            window.location.href = `${API_BASE}/db-manage.php?action=backup&token=${encodeURIComponent(token)}`;
+            showResult('백업 파일 다운로드 중...');
+        }
+
+        function resetDB() {
+            const token = getToken();
+            if (!token) return;
+            if (!confirm('⚠️ 정말로 DB를 초기화하시겠습니까?\n\n모든 데이터가 삭제됩니다!')) return;
+            if (!confirm('🚨 마지막 확인: 되돌릴 수 없습니다. 계속하시겠습니까?')) return;
+            runApi(`${API_BASE}/db-manage.php`, 'POST', { action: 'reset' });
         }
 
         // ─── Tabs ───
