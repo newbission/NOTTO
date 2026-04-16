@@ -67,6 +67,7 @@ class Name
         $stmt = $this->pdo->prepare(
             "SELECT n.*, 
                     nr.numbers AS weekly_numbers,
+                    nr.reason AS weekly_reason,
                     nr.matched_count,
                     r.round_number,
                     r.winning_numbers,
@@ -74,7 +75,7 @@ class Name
                     COALESCE(pc.participation_count, 0) AS participation_count
              FROM names n
              LEFT JOIN (
-                 SELECT nr2.name_id, nr2.numbers, nr2.matched_count, nr2.round_id
+                 SELECT nr2.name_id, nr2.numbers, nr2.reason, nr2.matched_count, nr2.round_id
                  FROM name_rounds nr2
                  WHERE nr2.round_id = (SELECT MAX(id) FROM rounds)
              ) nr ON n.id = nr.name_id
@@ -113,14 +114,15 @@ class Name
      */
     public function getAll(string $orderBy, int $offset, int $limit): array
     {
-        $sql = "SELECT n.id, n.name, n.status, n.created_at, n.updated_at,
+        $sql = "SELECT n.id, n.name, n.status, n.created_at, n.updated_at, n.fixed_numbers, n.fixed_reason,
                        nr.numbers AS weekly_numbers,
+                       nr.reason AS weekly_reason,
                        nr.matched_count,
                        r.round_number,
                        COALESCE(pc.participation_count, 0) AS participation_count
                 FROM names n
                 LEFT JOIN (
-                    SELECT nr2.name_id, nr2.numbers, nr2.matched_count, nr2.round_id
+                    SELECT nr2.name_id, nr2.numbers, nr2.reason, nr2.matched_count, nr2.round_id
                     FROM name_rounds nr2
                     WHERE nr2.round_id = (SELECT MAX(id) FROM rounds)
                 ) nr ON n.id = nr.name_id
@@ -172,12 +174,12 @@ class Name
     /**
      * 고유번호 저장 + active 상태 전환
      */
-    public function activateWithFixedNumbers(int $id, array $numbers): void
+    public function activateWithFixedNumbers(int $id, array $numbers, ?string $reason = null): void
     {
         $stmt = $this->pdo->prepare(
-            "UPDATE names SET fixed_numbers = ?, status = 'active' WHERE id = ?"
+            "UPDATE names SET fixed_numbers = ?, fixed_reason = ?, status = 'active' WHERE id = ?"
         );
-        $stmt->execute([json_encode($numbers), $id]);
+        $stmt->execute([json_encode($numbers), $reason, $id]);
         logInfo('이름 활성화 + 고유번호 부여', ['id' => $id, 'numbers' => $numbers], 'model');
     }
 

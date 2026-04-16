@@ -80,14 +80,16 @@ class DrawService
         }
 
         // 1) 고유번호 저장 + active 전환
-        $this->name->activateWithFixedNumbers($nameId, $result['fixed_numbers']);
+        $this->name->activateWithFixedNumbers($nameId, $result['fixed_numbers'], $result['fixed_reason']);
         logInfo('즉시 등록 — 고유번호 생성', [
             'name' => $name,
             'fixed' => $result['fixed_numbers'],
+            'fixed_reason' => $result['fixed_reason'],
         ], 'draw');
 
         // 2) 현재 회차 자동 확보 + 주간번호 저장
         $weeklyNumbers = $result['weekly_numbers'];
+        $weeklyReason = $result['weekly_reason'];
         $roundNumber = null;
         $currentRound = RoundHelper::ensureCurrentRound();
         $roundId = (int) $currentRound['id'];
@@ -98,11 +100,12 @@ class DrawService
         $stmt = $pdo->prepare("SELECT id FROM name_rounds WHERE name_id = ? AND round_id = ?");
         $stmt->execute([$nameId, $roundId]);
         if (!$stmt->fetch()) {
-            $this->round->saveNameNumbers($nameId, $roundId, $weeklyNumbers);
+            $this->round->saveNameNumbers($nameId, $roundId, $weeklyNumbers, $weeklyReason);
             logInfo('즉시 등록 — 주간번호 저장', [
                 'name' => $name,
                 'round' => $roundNumber,
                 'weekly' => $weeklyNumbers,
+                'weekly_reason' => $weeklyReason,
             ], 'draw');
         } else {
             logInfo('즉시 등록 — 주간번호 이미 존재', ['name' => $name, 'round' => $roundNumber], 'draw');
@@ -119,7 +122,9 @@ class DrawService
             'name' => $name,
             'status' => 'active',
             'fixed_numbers' => $result['fixed_numbers'],
+            'fixed_reason' => $result['fixed_reason'],
             'weekly_numbers' => $weeklyNumbers,
+            'weekly_reason' => $weeklyReason,
             'round_number' => $roundNumber,
         ];
     }
@@ -168,7 +173,8 @@ class DrawService
                 if ($matched) {
                     $this->name->activateWithFixedNumbers(
                         (int) $pendingName['id'],
-                        $matched['numbers']
+                        $matched['numbers'],
+                        $matched['reason'] ?? ''
                     );
                     $processed++;
                     $activatedNames[] = [
@@ -177,7 +183,8 @@ class DrawService
                     ];
                     logInfo('고유번호 생성 성공', [
                         'name' => $pendingName['name'],
-                        'numbers' => $matched['numbers']
+                        'numbers' => $matched['numbers'],
+                        'reason' => $matched['reason'] ?? ''
                     ], 'draw');
                 } else {
                     $failed++;
@@ -296,7 +303,8 @@ class DrawService
                     $this->round->saveNameNumbers(
                         (int) $activeName['id'],
                         $roundId,
-                        $matched['numbers']
+                        $matched['numbers'],
+                        $matched['reason'] ?? ''
                     );
                     $generated++;
                 } else {

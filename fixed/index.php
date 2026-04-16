@@ -37,9 +37,16 @@
             <p class="fixed-result__title">고유번호</p>
             <h2 class="fixed-result__name" id="fixed-name"></h2>
             <div class="fixed-result__numbers" id="fixed-numbers"></div>
+            <div class="user-card__reason" id="fixed-reason" style="margin-top: var(--space-md); margin-bottom: var(--space-md); display:none;"></div>
             <p class="fixed-result__note" id="fixed-note">이 번호는 평생 변하지 않습니다 🔒</p>
             <p class="fixed-result__note" id="fixed-date" style="margin-top: var(--space-sm);"></p>
         </div>
+    </div>
+
+    <!-- Latest Lists -->
+    <div class="results" id="latest-fixed" style="margin-top: var(--space-xl); display: none;">
+        <h2 style="text-align: center; margin-bottom: var(--space-lg); font-size: 1.2rem; color: var(--color-text);">최근에 고유번호를 받은 행운의 주인공들</h2>
+        <div class="results__grid" id="latest-fixed-grid"></div>
     </div>
 
     <!-- Message -->
@@ -111,6 +118,14 @@
                         `<span class="ball ball--large ball--fixed">${n}</span>`
                     ).join('');
 
+                    if (data.fixed_reason) {
+                        const reasonEl = document.getElementById('fixed-reason');
+                        reasonEl.innerHTML = `"${escapeHtml(data.fixed_reason)}"`;
+                        reasonEl.style.display = 'block';
+                    } else {
+                        document.getElementById('fixed-reason').style.display = 'none';
+                    }
+
                     if (data.created_at) {
                         const date = new Date(data.created_at);
                         dateEl.textContent = `등록일: ${date.toLocaleDateString('ko-KR')}`;
@@ -130,12 +145,53 @@
             if (nameParam) {
                 input.value = nameParam;
                 form.dispatchEvent(new Event('submit'));
+            } else {
+                // 파라미터가 없으면 최신 고유번호 목록을 불러옴
+                loadLatestFixed();
+            }
+
+            async function loadLatestFixed() {
+                try {
+                    const response = await fetch(`${API_BASE}/latest_fixed.php`);
+                    const json = await response.json();
+                    
+                    if (json.data && json.data.length > 0) {
+                        const grid = document.getElementById('latest-fixed-grid');
+                        const container = document.getElementById('latest-fixed');
+                        
+                        grid.innerHTML = json.data.map(user => {
+                            const numbersHTML = user.fixed_numbers ? user.fixed_numbers.map(n => `<span class="ball ball--small ball--fixed">${n}</span>`).join('') : '';
+                            const reasonHTML = user.fixed_reason ? `<div class="user-card__reason" style="margin-top: var(--space-sm); font-size: 0.85rem;">"${escapeHtml(user.fixed_reason)}"</div>` : '';
+                            
+                            return `
+                            <div class="user-card" style="cursor: pointer;" onclick="document.getElementById('fixed-input').value='${user.name}'; document.getElementById('fixed-form').dispatchEvent(new Event('submit'));">
+                                <div class="user-card__header">
+                                    <span class="user-card__name">${escapeHtml(user.name)}</span>
+                                </div>
+                                <div class="user-card__numbers" style="margin-top: var(--space-sm);">
+                                    ${numbersHTML}
+                                </div>
+                                ${reasonHTML}
+                            </div>
+                            `;
+                        }).join('');
+                        container.style.display = 'block';
+                    }
+                } catch (err) {
+                    console.error('최신 고유번호 로딩 실패:', err);
+                }
             }
 
             function showToast(message, type = 'info') {
                 toast.textContent = message;
                 toast.className = `toast show toast--${type}`;
                 setTimeout(() => toast.classList.remove('show'), 3000);
+            }
+
+            function escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
             }
         })();
     </script>

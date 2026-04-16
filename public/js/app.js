@@ -213,11 +213,16 @@
             numbersHTML = `<div class="user-card__numbers">번호 생성 대기중...</div>`;
         } else {
             const winningNumbers = user.winning_numbers || [];
+            const weeklyReasonHTML = user.weekly_reason ? `<div class="user-card__reason">"${escapeHtml(user.weekly_reason)}"</div>` : '';
             numbersHTML = `<div class="user-card__numbers">
                 ${user.weekly_numbers.map(n => {
                 const isMatched = winningNumbers.includes(n);
                 return `<span class="ball ${getBallClass(n)} ${isMatched ? 'ball--matched' : ''}">${n}</span>`;
             }).join('')}
+            </div>
+            ${weeklyReasonHTML}
+            <div style="margin-top: var(--space-sm); text-align: center;">
+                <a href="fixed/?name=${encodeURIComponent(user.name)}" class="btn-register" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; text-decoration: none; display: inline-block; background: transparent; border: 1px solid var(--color-primary); color: var(--color-primary);">고유번호 보기</a>
             </div>`;
         }
 
@@ -374,11 +379,16 @@
             </div>`;
         } else {
             const winningNumbers = user.winning_numbers || [];
+            const weeklyReasonHTML = user.weekly_reason ? `<div class="user-card__reason" style="margin-top: var(--space-md); font-size: 0.95rem;">"${escapeHtml(user.weekly_reason)}"</div>` : '';
             numbersHTML = `<div class="user-card__numbers">
                 ${user.weekly_numbers.map(n => {
                 const isMatched = winningNumbers.includes(n);
                 return `<span class="ball ball--large ${getBallClass(n)} ${isMatched ? 'ball--matched' : ''}">${n}</span>`;
             }).join('')}
+            </div>
+            ${weeklyReasonHTML}
+            <div style="margin-top: var(--space-lg); text-align: center;">
+                <a href="fixed/?name=${encodeURIComponent(user.name)}" class="btn-register" style="text-decoration: none; display: inline-block;">고유번호 자세히 보기</a>
             </div>`;
         }
 

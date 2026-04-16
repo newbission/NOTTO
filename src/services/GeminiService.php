@@ -62,9 +62,10 @@ class GeminiService
                             'numbers' => [
                                 'type' => 'ARRAY',
                                 'items' => ['type' => 'INTEGER']
-                            ]
+                            ],
+                            'reason' => ['type' => 'STRING']
                         ],
-                        'required' => ['name', 'numbers']
+                        'required' => ['name', 'numbers', 'reason']
                     ]
                 ]
             ]
@@ -121,16 +122,30 @@ PROMPT;
                 'responseSchema' => [
                     'type' => 'OBJECT',
                     'properties' => [
-                        'fixed_numbers' => [
+                        'fixed_resp' => [
                             'type' => 'ARRAY',
-                            'items' => ['type' => 'INTEGER']
+                            'items' => [
+                                'type' => 'OBJECT',
+                                'properties' => [
+                                    'name' => ['type' => 'STRING'],
+                                    'numbers' => ['type' => 'ARRAY', 'items' => ['type' => 'INTEGER']],
+                                    'reason' => ['type' => 'STRING']
+                                ]
+                            ]
                         ],
-                        'weekly_numbers' => [
+                        'weekly_resp' => [
                             'type' => 'ARRAY',
-                            'items' => ['type' => 'INTEGER']
+                            'items' => [
+                                'type' => 'OBJECT',
+                                'properties' => [
+                                    'name' => ['type' => 'STRING'],
+                                    'numbers' => ['type' => 'ARRAY', 'items' => ['type' => 'INTEGER']],
+                                    'reason' => ['type' => 'STRING']
+                                ]
+                            ]
                         ]
                     ],
-                    'required' => ['fixed_numbers', 'weekly_numbers']
+                    'required' => ['fixed_resp', 'weekly_resp']
                 ]
             ]
         ];
@@ -142,29 +157,39 @@ PROMPT;
             return null;
         }
 
-        if (!isset($response['fixed_numbers'], $response['weekly_numbers'])) {
+        if (!isset($response['fixed_resp'][0], $response['weekly_resp'][0])) {
             logError('Gemini 통합 응답 형식 오류', ['response' => $response], 'gemini');
             return null;
         }
 
-        $fixed = $this->validateAndCleanNumbers($response['fixed_numbers']);
-        $weekly = $this->validateAndCleanNumbers($response['weekly_numbers']);
+        $fixedRaw = $response['fixed_resp'][0];
+        $weeklyRaw = $response['weekly_resp'][0];
 
-        if ($fixed === null || $weekly === null) {
+        $fixedNums = $this->validateAndCleanNumbers($fixedRaw['numbers'] ?? []);
+        $weeklyNums = $this->validateAndCleanNumbers($weeklyRaw['numbers'] ?? []);
+        $fixedReason = $fixedRaw['reason'] ?? '';
+        $weeklyReason = $weeklyRaw['reason'] ?? '';
+
+        if ($fixedNums === null || $weeklyNums === null) {
             logError('Gemini 통합 응답 번호 검증 실패', [
-                'fixed_valid' => $fixed !== null,
-                'weekly_valid' => $weekly !== null,
+                'fixed_valid' => $fixedNums !== null,
+                'weekly_valid' => $weeklyNums !== null,
             ], 'gemini');
             return null;
         }
 
         logInfo('Gemini 통합 호출 성공', [
             'name' => $name,
-            'fixed' => $fixed,
-            'weekly' => $weekly,
+            'fixed_numbers' => $fixedNums,
+            'weekly_numbers' => $weeklyNums,
         ], 'gemini');
 
-        return ['fixed_numbers' => $fixed, 'weekly_numbers' => $weekly];
+        return [
+            'fixed_numbers' => $fixedNums,
+            'fixed_reason' => $fixedReason,
+            'weekly_numbers' => $weeklyNums,
+            'weekly_reason' => $weeklyReason
+        ];
     }
 
     // ─── HTTP 통신 ───
@@ -263,9 +288,12 @@ PROMPT;
                 continue;
             }
 
+            $reason = $item['reason'] ?? '';
+
             $results[] = [
                 'name' => $item['name'],
                 'numbers' => $validNumbers,
+                'reason' => $reason
             ];
         }
 

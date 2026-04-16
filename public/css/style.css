@@ -278,18 +278,32 @@ a:hover {
 
 /* ─── User Card ─── */
 .user-card {
-    background: var(--color-bg-card);
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     padding: var(--space-lg);
-    margin-bottom: var(--space-md);
-    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
 }
 
 .user-card:hover {
     transform: translateY(-2px);
-    border-color: var(--color-primary);
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-md);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.user-card__reason {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    font-style: italic;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.03);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    margin-top: calc(var(--space-sm) * -1);
 }
 
 .user-card__header {

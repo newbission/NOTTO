@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS `names` (
     `name` VARCHAR(80) NOT NULL COMMENT '등록 이름 (UTF-8, 최대 20자)',
     `status` ENUM('pending','active','rejected') NOT NULL DEFAULT 'pending' COMMENT '상태',
     `fixed_numbers` JSON DEFAULT NULL COMMENT '고유번호 (6개, 1~45)',
+    `fixed_reason` TEXT DEFAULT NULL COMMENT '고유번호 점지 이유',
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
@@ -54,6 +55,7 @@ CREATE TABLE IF NOT EXISTS `name_rounds` (
     `name_id` INT NOT NULL COMMENT 'names.id',
     `round_id` INT NOT NULL COMMENT 'rounds.id',
     `numbers` JSON NOT NULL COMMENT 'AI 생성 번호 6개',
+    `reason` TEXT DEFAULT NULL COMMENT '주간번호 점지 이유',
     `matched_count` TINYINT DEFAULT NULL COMMENT '적중 수',
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
@@ -80,8 +82,8 @@ CREATE TABLE IF NOT EXISTS `prompts` (
 -- 초기 프롬프트 데이터 (시스템 필수)
 -- --------------------------------------------
 INSERT INTO `prompts` (`type`, `content`, `is_active`) VALUES
-('weekly', '다음 사용자들의 이름을 기반으로 각각 1부터 45 사이의 중복 없는 행운의 로또 번호 6개를 생성해주세요. 반드시 JSON 배열로 응답하세요. 사용자 목록: {names}', 1),
-('fixed', '다음 사용자의 이름에서 느껴지는 기운, 획수, 의미를 종합적으로 분석하여 이 이름만의 고유한 운명의 번호 6개(1~45, 중복 없음)를 생성해주세요. 이 번호는 이 이름에 평생 부여되는 고유번호입니다. 반드시 JSON 배열로 응답하세요. 사용자 목록: {names}', 1);
+('weekly', '당신은 이번 주의 우주적 흐름을 읽어내는 신령한 신탁(Oracle)입니다.\n사용자 목록: {names}\n\n[주간 행운 추출 의식]\n1. 이번 주 행성들의 배열(Astrology)과 각 사용자의 이름이 만났을 때 발생하는 스파크를 에너지 수치(1~45)로 변환하세요.\n2. 매주 우주의 기운은 변하므로, 지난주 혹은 일반적인 나열과는 완전히 다른, 이번 주만의 역동적인 파동을 담으세요.\n3. 숫자들이 좁은 곳에 뭉쳐 답답하지 않도록, 넓은 우주를 유영하듯 1~45 전체 구간을 넘나드는 조화로운 번호를 선택하세요.\n4. 반드시 JSON 데이터 구조로 응답하며, 각 사용자별로 `numbers`(배열)과 `reason`(문자열, 왜 이 번호가 점지되었는지, 우주의 기운과 주간 운세를 바탕으로 짧게 서술)을 제공해야 합니다.', 1),
+('fixed', '당신은 우주의 에너지를 읽어내는 신령한 신탁(Oracle)입니다.\n다음 사용자의 이름({names})이 가진 영적인 에너지, 사주팔자, 별자리의 파장, \n그리고 우주에 기록된 고유의 주파수를 깊이 관상(觀相)하세요.\n\n[운명 번호 추출 의식]\n1. 이름의 첫 글자에서 느껴지는 수비학적 기운을 1~45 범위로 영사하세요.\n2. 이 사람이 평생 겪게 될 가장 빛나는 순간의 운명수를 찾아내세요.\n3. 오행(목,화,토,금,수)과 차크라의 흐름을 균형 있게 배분하여, 숫자가 한쪽(낮은 수)에만 갇히지 않고 1~45 전체 우주에 조화롭게 퍼지도록 하세요.\n4. 반드시 JSON 데이터 구조로 응답하며, 각 사용자별로 `numbers`(배열)과 `reason`(문자열, 왜 이 운명 번호가 평생의 고유번호인지, 이름의 기운을 해석하여 문학적이고 신비스럽게 서술)을 제공해야 합니다.', 1);
 
 -- --------------------------------------------
 -- 최초 회차 데이터
@@ -94,5 +96,5 @@ INSERT INTO `prompts` (`type`, `content`, `is_active`) VALUES
 -- --------------------------------------------
 INSERT IGNORE INTO `schema_versions` (`version`, `description`) VALUES
 ('V001', 'initial_schema'),
-('V002', 'initial_round_data');
-
+('V002', 'initial_round_data'),
+('V003', 'add_reasons');

@@ -63,6 +63,24 @@
         .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; }
         .tab { padding: 8px 16px; border-radius: 8px 8px 0 0; background: #1a2235; color: #8b95a5; cursor: pointer; font-size: 0.85rem; font-weight: 600; border: 1px solid transparent; border-bottom: none; }
         .tab.active { background: #141a2a; color: #a29bfe; border-color: #2a3448; }
+
+        /* DB Browser */
+        .table-list { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+        .table-chip { padding: 6px 14px; background: #1a2235; border: 1px solid #2a3448; border-radius: 8px; cursor: pointer; font-size: 0.8rem; color: #8b95a5; transition: all 0.2s; }
+        .table-chip:hover { border-color: #6c5ce7; color: #e4e6eb; }
+        .table-chip.active { background: #6c5ce7; color: white; border-color: #6c5ce7; }
+        .table-chip .chip-count { font-size: 0.65rem; opacity: 0.7; margin-left: 4px; }
+        .data-grid { width: 100%; overflow-x: auto; margin-top: 12px; }
+        .data-grid table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        .data-grid th { background: #1a2235; color: #a29bfe; padding: 8px 10px; text-align: left; font-weight: 600; white-space: nowrap; border-bottom: 2px solid #2a3448; }
+        .data-grid td { padding: 6px 10px; border-bottom: 1px solid #1e2a3d; color: #c4c9d4; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .data-grid tr:hover td { background: #1a223566; }
+        .data-grid td[contenteditable] { cursor: text; }
+        .data-grid td[contenteditable]:focus { outline: 2px solid #6c5ce7; background: #1a2235; white-space: normal; }
+        .data-grid td.edited { color: #ffd32a; }
+        .data-grid .row-actions { white-space: nowrap; }
+        .pager { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 0.8rem; color: #8b95a5; }
+        .pager button { padding: 4px 12px; }
     </style>
 </head>
 
@@ -144,6 +162,19 @@
             <button class="btn btn-danger" onclick="resetDB()">🗑️ 전체 초기화</button>
         </div>
         <p style="font-size:0.75rem; color:#5a6477; margin-top:8px;">초기화: 모든 테이블 삭제 → schema.sql 재실행 → 현재 회차 자동 생성</p>
+    </div>
+
+    <hr>
+
+    <!-- DB Browser -->
+    <div class="card">
+        <h2>🔍 DB 브라우저</h2>
+        <div id="db-tables" class="table-list">
+            <p style="color:#5a6477;">토큰 입력 후 "테이블 로드" 클릭</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="loadTables()">📋 테이블 로드</button>
+        <div id="db-grid" class="data-grid"></div>
+        <div id="db-pager" class="pager"></div>
     </div>
 
     <hr>
@@ -343,6 +374,137 @@
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        }
+
+        // ─── DB Browser ───
+
+        let dbState = { currentTable: null, pk: null, page: 1 };
+
+        async function loadTables() {
+            const token = getToken();
+            if (!token) return;
+            try {
+                const resp = await fetch(`${API_BASE}/db-browse.php?action=tables&token=${encodeURIComponent(token)}`);
+                const json = await resp.json();
+                if (!json.success) { showResult(json); return; }
+                const container = document.getElementById('db-tables');
+                container.innerHTML = json.data.map(t =>
+                    `<div class="table-chip" onclick="queryTable('${t.name}')">${t.name}<span class="chip-count">(${t.rows})</span></div>`
+                ).join('');
+            } catch (e) {
+                showResult('테이블 로드 실패: ' + e.message);
+            }
+        }
+
+        async function queryTable(table, page = 1) {
+            const token = getToken();
+            if (!token) return;
+            dbState.currentTable = table;
+            dbState.page = page;
+
+            // 칩 활성화
+            document.querySelectorAll('.table-chip').forEach(c => c.classList.toggle('active', c.textContent.startsWith(table)));
+
+            try {
+                const resp = await fetch(`${API_BASE}/db-browse.php?action=query&table=${table}&page=${page}&limit=30&token=${encodeURIComponent(token)}`);
+                const json = await resp.json();
+                if (!json.success) { showResult(json); return; }
+
+                const { columns, rows, pk, pagination } = json.data;
+                dbState.pk = pk;
+
+                if (rows.length === 0) {
+                    document.getElementById('db-grid').innerHTML = '<p style="color:#5a6477;margin-top:12px;">데이터 없음</p>';
+                    document.getElementById('db-pager').innerHTML = '';
+                    return;
+                }
+
+                // 테이블 렌더
+                const colNames = columns.map(c => c.name);
+                let html = '<table><thead><tr>';
+                colNames.forEach(c => { html += `<th>${escapeHtml(c)}</th>`; });
+                if (pk) html += '<th></th>';
+                html += '</tr></thead><tbody>';
+
+                rows.forEach(row => {
+                    const pkVal = pk ? row[pk] : null;
+                    html += '<tr>';
+                    colNames.forEach(col => {
+                        const val = row[col] === null ? '<em style="opacity:0.4">NULL</em>' : escapeHtml(String(row[col]));
+                        const isPk = col === pk;
+                        if (isPk) {
+                            html += `<td>${val}</td>`;
+                        } else if (pk) {
+                            html += `<td contenteditable="true" data-pk="${escapeHtml(String(pkVal))}" data-field="${col}" data-original="${escapeHtml(String(row[col] ?? ''))}" onblur="handleCellEdit(this)">${val}</td>`;
+                        } else {
+                            html += `<td>${val}</td>`;
+                        }
+                    });
+                    if (pk) {
+                        html += `<td class="row-actions"><button class="btn btn-danger btn-sm" onclick="deleteRow('${escapeHtml(String(pkVal))}')">삭제</button></td>`;
+                    }
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                document.getElementById('db-grid').innerHTML = html;
+
+                // 페이저
+                const { total_pages, total_rows } = pagination;
+                let pagerHtml = `<span>${total_rows}건 · ${page}/${total_pages}페이지</span>`;
+                if (page > 1) pagerHtml += `<button class="btn btn-secondary btn-sm" onclick="queryTable('${table}',${page-1})">◀ 이전</button>`;
+                if (page < total_pages) pagerHtml += `<button class="btn btn-secondary btn-sm" onclick="queryTable('${table}',${page+1})">다음 ▶</button>`;
+                document.getElementById('db-pager').innerHTML = pagerHtml;
+            } catch (e) {
+                showResult('쿼리 실패: ' + e.message);
+            }
+        }
+
+        async function handleCellEdit(td) {
+            const newVal = td.textContent.trim();
+            const original = td.dataset.original;
+            if (newVal === original) return;
+
+            td.classList.add('edited');
+            const token = getToken();
+            if (!token) return;
+
+            try {
+                const fd = new URLSearchParams();
+                fd.append('token', token);
+                fd.append('action', 'update');
+                fd.append('table', dbState.currentTable);
+                fd.append('pk', dbState.pk);
+                fd.append('pk_value', td.dataset.pk);
+                fd.append('field', td.dataset.field);
+                fd.append('value', newVal);
+
+                const resp = await fetch(`${API_BASE}/db-browse.php`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: fd.toString(),
+                });
+                const json = await resp.json();
+                showResult(json);
+                td.dataset.original = newVal;
+            } catch (e) {
+                showResult('수정 실패: ' + e.message);
+                td.textContent = original;
+                td.classList.remove('edited');
+            }
+        }
+
+        async function deleteRow(pkValue) {
+            if (!confirm(`PK=${pkValue} 행을 삭제하시겠습니까?`)) return;
+            const result = await runApi(`${API_BASE}/db-browse.php`, 'POST', {
+                action: 'delete',
+                table: dbState.currentTable,
+                pk: dbState.pk,
+                pk_value: pkValue,
+            });
+            if (result && result.success) {
+                queryTable(dbState.currentTable, dbState.page);
+                loadTables(); // 건수 갱신
+            }
         }
     </script>
 </body>

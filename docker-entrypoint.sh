@@ -21,39 +21,14 @@ until php -r "
 done
 echo "✅ MySQL 연결 성공"
 
-# DB 상태 확인: names 테이블 존재 여부로 초기 설치 판단
-TABLE_EXISTS=$(php -r "
-    require '/var/www/html/src/config/database.php';
-    \$pdo = getDatabase();
-    \$result = \$pdo->query(\"SHOW TABLES LIKE 'names'\");
-    echo \$result->rowCount() > 0 ? '1' : '0';
-" 2>/dev/null)
-
-if [ "$TABLE_EXISTS" = "0" ]; then
-    # 최초 설치: schema.sql 실행
-    echo "🆕 최초 DB 설치 — schema.sql 실행"
-    php -r "
-        require '/var/www/html/src/config/database.php';
-        \$pdo = getDatabase();
-        \$sql = file_get_contents('/var/www/html/database/schema.sql');
-        \$pdo->exec(\$sql);
-        echo '✅ schema.sql 적용 완료' . PHP_EOL;
-    "
-else
-    # 기존 DB: 미적용 마이그레이션 실행
-    echo "📦 기존 DB 감지 — 마이그레이션 확인"
-    php /var/www/html/src/helpers/migrator.php
+# DB 설정 및 시스템 초기화
+echo "==== 시스템 초기화 시작 ===="
+php /var/www/html/api/init_container.php
+if [ $? -ne 0 ]; then
+    echo "❌ 초기화 실패: 로그를 확인하세요."
+    exit 1
 fi
-
-# 현재 회차 자동 생성 (기준점에서 동적 계산)
-echo "📅 현재 회차 확인..."
-php -r "
-    require '/var/www/html/src/config/database.php';
-    require '/var/www/html/src/helpers/RoundHelper.php';
-    \$result = RoundHelper::ensureCurrentRound();
-    \$status = \$result['created'] ? '🆕 생성됨' : '✅ 이미 존재';
-    echo \"\$status: {\$result['round_number']}회 ({\$result['draw_date']})\" . PHP_EOL;
-"
+echo "==== 시스템 초기화 완료 ===="
 
 echo ""
 echo "🚀 Apache 시작"
