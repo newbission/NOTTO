@@ -92,7 +92,7 @@ class DrawService
         }
 
         // 1) 고유번호 저장 + active 전환
-        $this->name->activateWithFixedNumbers($nameId, $result['fixed_numbers'], $result['fixed_reason']);
+        $this->name->activateWithFixedNumbers($nameId, $result['fixed_numbers'], $result['fixed_reason'], $result['fixed_reason_detail'] ?? null);
         logInfo('즉시 등록 — 고유번호 생성', [
             'name' => $name,
             'fixed' => $result['fixed_numbers'],
@@ -460,7 +460,8 @@ class DrawService
                     $this->name->activateWithFixedNumbers(
                         (int) $target['id'],
                         $matched['numbers'],
-                        $matched['reason'] ?? null
+                        $matched['reason'] ?? null,
+                        $matched['reason_detail'] ?? null
                     );
                     $generated++;
                     logInfo('고유번호 재생성 성공', ['name' => $target['name'], 'numbers' => $matched['numbers']], 'draw');

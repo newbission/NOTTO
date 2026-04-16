@@ -186,7 +186,10 @@
             <div id="active-prompts-container">
                 <p style="color:#5a6477;">토큰 입력 후 "현재 활성" 탭을 클릭하면 로드됩니다.</p>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="loadPrompts()" style="margin-top:12px;">🔄 새로고침</button>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+                <button class="btn btn-secondary btn-sm" onclick="loadPrompts()">🔄 새로고침</button>
+                <button class="btn btn-secondary btn-sm" style="border-color:#e67e22; color:#e67e22;" onclick="resetPrompts()">🔤 기본 프롬프트 복원 (한글깨짐 수정)</button>
+            </div>
         </div>
 
         <!-- Create New Prompt -->
@@ -388,7 +391,7 @@
                 if (pending.length === 0) {
                     statusEl.textContent = '최신 상태 ✅';
                 } else {
-                    statusEl.textContent = `미적용 ${pending.length}개: ${pending.map(p => p.version).join(', ')}`;
+                    statusEl.textContent = `미적용 ${pending.length}개: ${pending.join(', ')}`;
                     document.getElementById('btn-migrate').disabled = false;
                 }
             } catch (e) {
@@ -549,6 +552,19 @@
 
             const result = await runApi(`${API_BASE}/prompts.php?action=activate&id=${id}`, 'GET');
             if (result && result.success) {
+                loadPrompts();
+            }
+        }
+
+        async function resetPrompts() {
+            if (!confirm('기존 프롬프트를 모두 삭제하고 기본 한글 프롬프트로 복원합니다.\n한글이 깨진 경우에만 사용하세요. 계속하시겠습니까?')) return;
+
+            const token = getToken();
+            if (!token) return;
+
+            const result = await runApi(`${API_BASE}/reset-prompts.php`, 'POST', { token });
+            if (result && result.success) {
+                showResult(`✅ 프롬프트 복원 완료 (weekly: #${result.weekly_id}, fixed: #${result.fixed_id})`);
                 loadPrompts();
             }
         }

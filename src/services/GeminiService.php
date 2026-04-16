@@ -84,7 +84,7 @@ class GeminiService
             return [];
         }
 
-        return $this->parseResponse($response, $names);
+        return $this->parseResponse($response);
     }
 
     /**
@@ -135,7 +135,8 @@ PROMPT;
                                 'properties' => [
                                     'name' => ['type' => 'STRING'],
                                     'numbers' => ['type' => 'ARRAY', 'items' => ['type' => 'INTEGER']],
-                                    'reason' => ['type' => 'STRING']
+                                    'reason' => ['type' => 'STRING'],
+                                    'reason_detail' => ['type' => 'STRING']
                                 ]
                             ]
                         ],
@@ -175,6 +176,7 @@ PROMPT;
         $fixedNums = $this->validateAndCleanNumbers($fixedRaw['numbers'] ?? []);
         $weeklyNums = $this->validateAndCleanNumbers($weeklyRaw['numbers'] ?? []);
         $fixedReason = $fixedRaw['reason'] ?? '';
+        $fixedReasonDetail = $fixedRaw['reason_detail'] ?? '';
         $weeklyReason = $weeklyRaw['reason'] ?? '';
         $weeklyReasonDetail = $weeklyRaw['reason_detail'] ?? '';
 
@@ -195,6 +197,7 @@ PROMPT;
         return [
             'fixed_numbers' => $fixedNums,
             'fixed_reason' => $fixedReason,
+            'fixed_reason_detail' => $fixedReasonDetail,
             'weekly_numbers' => $weeklyNums,
             'weekly_reason' => $weeklyReason,
             'weekly_reason_detail' => $weeklyReasonDetail,
@@ -245,7 +248,7 @@ PROMPT;
                 'method' => 'POST',
                 'header' => "Content-Type: application/json\r\n",
                 'content' => $jsonBody,
-                'timeout' => 30,
+                'timeout' => 90,
                 'ignore_errors' => true,
             ]
         ]);
@@ -265,6 +268,11 @@ PROMPT;
         }
 
         $text = $decoded['candidates'][0]['content']['parts'][0]['text'];
+
+        // 마크다운 코드펜스 제거 (Gemma 등 일부 모델이 ```json ... ``` 형태로 응답)
+        $text = preg_replace('/^```(?:json)?\s*/i', '', trim($text));
+        $text = preg_replace('/\s*```$/', '', $text);
+
         $parsed = json_decode($text, true);
 
         if (!is_array($parsed)) {
@@ -281,7 +289,7 @@ PROMPT;
     /**
      * Gemini 응답 파싱 + 이름 매칭 (배열 응답용)
      */
-    private function parseResponse(array $parsed, array $originalNames): array
+    private function parseResponse(array $parsed): array
     {
         $results = [];
 

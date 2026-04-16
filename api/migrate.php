@@ -34,11 +34,10 @@ if (empty($authHeader) && function_exists('apache_request_headers')) {
 $token = '';
 if (preg_match('/^Bearer\s+(.+)$/i', $authHeader, $matches)) {
     $token = $matches[1];
-} elseif (isset($_GET['token'])) {
-    $token = $_GET['token']; // 브라우저 테스트용 토큰
+} else {
+    $token = $_GET['token'] ?? $_POST['token'] ?? '';
 }
 
-// GET 파라미터 또는 Bearer 헤더의 토큰을 $_GET['token']으로 통일 후 requireAdminToken() 사용
 $_GET['token'] = $token;
 requireAdminToken();
 

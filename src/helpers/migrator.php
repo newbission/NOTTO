@@ -55,20 +55,23 @@ function scanMigrationFiles(string $migrationsDir): array
         return [];
     }
 
-    $files = glob($migrationsDir . '/V[0-9][0-9][0-9]__*.sql');
-    if ($files === false) {
-        return [];
-    }
+    // .sql 과 .php 파일 모두 스캔
+    $files = array_merge(
+        glob($migrationsDir . '/V[0-9][0-9][0-9]__*.sql') ?: [],
+        glob($migrationsDir . '/V[0-9][0-9][0-9]__*.php') ?: []
+    );
 
     $migrations = [];
     foreach ($files as $file) {
-        $filename = basename($file, '.sql');
+        $ext = pathinfo($file, PATHINFO_EXTENSION);
+        $filename = basename($file, '.' . $ext);
         // V001__initial_schema → version=V001, description=initial_schema
         if (preg_match('/^(V\d{3})__(.+)$/', $filename, $matches)) {
             $migrations[] = [
                 'version' => $matches[1],
                 'description' => $matches[2],
                 'path' => $file,
+                'type' => $ext, // 'sql' or 'php'
             ];
         }
     }
@@ -116,22 +119,30 @@ function runMigrations(PDO $pdo, string $migrationsDir): array
             continue;
         }
 
-        // SQL 파일 읽기
-        $sql = file_get_contents($migration['path']);
-        if ($sql === false) {
-            $error = "SQL 파일 읽기 실패: {$migration['path']}";
-            logError($error, [], 'migrator');
-            $result['errors'][] = $error;
-            break; // 실패 시 중단
-        }
-
         try {
-            // 마이그레이션 실행
-            $pdo->exec($sql);
+            if ($migration['type'] === 'php') {
+                // PHP 마이그레이션: $pdo를 scope에 주입하여 include
+                (static function (PDO $pdo, string $path) {
+                    include $path;
+                })($pdo, $migration['path']);
+            } else {
+                // SQL 마이그레이션: 파일 읽기 후 멀티 스테이트먼트 분리 실행
+                $sql = file_get_contents($migration['path']);
+                if ($sql === false) {
+                    throw new \RuntimeException("SQL 파일 읽기 실패: {$migration['path']}");
+                }
+                $stripped = preg_replace('/--[^\n]*\n/m', "\n", $sql);
+                $stripped = preg_replace('/\/\*.*?\*\//s', '', $stripped);
+                foreach (explode(';', $stripped) as $statement) {
+                    $statement = trim($statement);
+                    if ($statement === '') continue;
+                    $pdo->exec($statement);
+                }
+            }
 
             // schema_versions에 기록
             $stmt = $pdo->prepare(
-                "INSERT INTO `schema_versions` (`version`, `description`) VALUES (:version, :description)"
+                "INSERT IGNORE INTO `schema_versions` (`version`, `description`) VALUES (:version, :description)"
             );
             $stmt->execute([
                 'version' => $version,
@@ -142,7 +153,7 @@ function runMigrations(PDO $pdo, string $migrationsDir): array
             logInfo("마이그레이션 적용 완료: {$version}", [
                 'description' => $migration['description'],
             ], 'migrator');
-        } catch (\PDOException $e) {
+        } catch (\Throwable $e) {
             $error = "마이그레이션 실패 [{$version}]: {$e->getMessage()}";
             logError($error, [
                 'version' => $version,

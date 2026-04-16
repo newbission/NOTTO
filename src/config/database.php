@@ -150,8 +150,14 @@ function getDatabase(): PDO
 {
     static $pdo = null;
 
+    // 연결이 살아있는지 확인 (MySQL server has gone away 방지)
     if ($pdo !== null) {
-        return $pdo;
+        try {
+            $pdo->query('SELECT 1');
+            return $pdo;
+        } catch (PDOException $e) {
+            $pdo = null; // 끊어졌으면 재연결
+        }
     }
 
     $host = env('DB_HOST', 'localhost');
