@@ -239,6 +239,7 @@ PROMPT;
     private function httpPost(string $url, array $body): ?array
     {
         $jsonBody = json_encode($body, JSON_UNESCAPED_UNICODE);
+        $maskedUrl = preg_replace('/key=[^&]+/', 'key=***', $url);
 
         $context = stream_context_create([
             'http' => [
@@ -250,17 +251,51 @@ PROMPT;
             ]
         ]);
 
-        $result = @file_get_contents($url, false, $context);
+        $rawResponse = @file_get_contents($url, false, $context);
 
-        if ($result === false) {
-            logError('Gemini API 호출 실패', ['url' => preg_replace('/key=[^&]+/', 'key=***', $url)], 'gemini');
+        // HTTP 상태코드 파싱 ($http_response_header는 file_get_contents가 자동 설정)
+        $httpStatus = 0;
+        if (!empty($http_response_header[0])) {
+            preg_match('/HTTP\/\S+\s+(\d+)/', $http_response_header[0], $m);
+            $httpStatus = (int) ($m[1] ?? 0);
+        }
+
+        // detail 로그: 요청/응답 전체 (APP_DEBUG=true 일 때만)
+        if (function_exists('env') && env('APP_DEBUG') === 'true') {
+            writeLog('DETAIL', 'Gemini 요청', [
+                'url' => $maskedUrl,
+                'model' => $this->model,
+                'prompt' => json_decode($jsonBody, true)['contents'][0]['parts'][0]['text'] ?? '',
+            ], 'gemini-detail');
+            writeLog('DETAIL', 'Gemini 응답', [
+                'http_status' => $httpStatus,
+                'body' => $rawResponse !== false ? substr($rawResponse, 0, 2000) : '(no response)',
+            ], 'gemini-detail');
+        }
+
+        if ($rawResponse === false) {
+            logError('Gemini 네트워크 오류', ['url' => $maskedUrl], 'gemini');
             return null;
         }
 
-        $decoded = json_decode($result, true);
+        // HTTP 에러 (4xx/5xx) — candidates 없는 게 아니라 명확한 HTTP 에러
+        if ($httpStatus >= 400) {
+            $errorBody = json_decode($rawResponse, true);
+            $errorMsg = $errorBody['error']['message'] ?? substr($rawResponse, 0, 200);
+            logError("Gemini HTTP {$httpStatus}", [
+                'status' => $httpStatus,
+                'message' => $errorMsg,
+            ], 'gemini');
+            return null;
+        }
+
+        $decoded = json_decode($rawResponse, true);
 
         if (!isset($decoded['candidates'][0]['content']['parts'][0]['text'])) {
-            logError('Gemini 응답 파싱 실패', ['response' => substr($result, 0, 300)], 'gemini');
+            logError('Gemini 응답 구조 오류', [
+                'http_status' => $httpStatus,
+                'response' => substr($rawResponse, 0, 300),
+            ], 'gemini');
             return null;
         }
 
@@ -277,7 +312,7 @@ PROMPT;
             return null;
         }
 
-        logInfo('Gemini API 호출 성공', ['results_count' => is_array($parsed) ? count($parsed) : 1], 'gemini');
+        logInfo('Gemini API 호출 성공', ['results_count' => count($parsed)], 'gemini');
         return $parsed;
     }
 
