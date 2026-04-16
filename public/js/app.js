@@ -37,11 +37,18 @@
     let hasMore = true;
     let isHeroCompact = false;
     let searchName = ''; // 현재 검색한 이름 (등록용)
+    const fixedDataCache = new Map(); // name → { numbers, reason }
+
+    // ─── DOM Elements (Modal) ───
+    const fixedModal = document.getElementById('fixed-modal');
+    const modalName = document.getElementById('modal-name');
+    const modalNumbers = document.getElementById('modal-numbers');
 
     // ─── Init ───
     function init() {
         setupEventListeners();
         setupInfiniteScroll();
+        setupModal();
         loadRoundInfo();
         loadUsers();
     }
@@ -73,6 +80,65 @@
         });
 
         // registerBtn is now dynamic, we handle its listener in showRegisterPrompt
+
+        // 이유 접기/펼치기
+        document.addEventListener('click', e => {
+            const btn = e.target.closest('.reason-toggle');
+            if (!btn) return;
+            const container = btn.closest('.user-card__reason');
+            const shortSpan = container.querySelector('.reason-short');
+            const detailSpan = container.querySelector('.reason-detail');
+            const isCollapsed = shortSpan.style.display !== 'none';
+            shortSpan.style.display = isCollapsed ? 'none' : '';
+            detailSpan.style.display = isCollapsed ? '' : 'none';
+            btn.textContent = isCollapsed ? '접기' : '더보기';
+        });
+    }
+
+    // ─── Reason HTML Builder ───
+    // reason: 1문장 요약 (접힌 상태), reasonDetail: 2~3문장 상세 (펼쳤을 때)
+    function buildReasonHTML(reason, reasonDetail = '', extraStyle = '') {
+        if (!reason) return '';
+        const styleAttr = extraStyle ? ` style="${extraStyle}"` : '';
+        const detail = reasonDetail || reason;
+        return `<div class="user-card__reason"${styleAttr}>
+            <span class="reason-text reason-text--collapsed reason-short">${escapeHtml(reason)}</span>
+            <span class="reason-text reason-detail" style="display:none;">${escapeHtml(detail)}</span>
+            <button class="reason-toggle">더보기</button>
+        </div>`;
+    }
+
+    // ─── Modal ───
+    function setupModal() {
+        document.getElementById('modal-close').addEventListener('click', closeFixedModal);
+        fixedModal.addEventListener('click', e => { if (e.target === fixedModal) closeFixedModal(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFixedModal(); });
+
+        // 이벤트 위임: .btn-fixed-view 클릭 처리
+        document.addEventListener('click', e => {
+            const btn = e.target.closest('.btn-fixed-view');
+            if (btn) openFixedModal(btn.dataset.name);
+        });
+    }
+
+    function openFixedModal(name) {
+        const data = fixedDataCache.get(name);
+        if (!data || !data.numbers) return;
+
+        modalName.textContent = name;
+        modalNumbers.innerHTML = data.numbers
+            .map(n => `<span class="ball ball--fixed ball--large">${n}</span>`)
+            .join('');
+
+        document.getElementById('modal-detail-link').href = `fixed/?name=${encodeURIComponent(name)}`;
+
+        fixedModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeFixedModal() {
+        fixedModal.style.display = 'none';
+        document.body.style.overflow = '';
     }
 
     // ─── Search ───
@@ -206,6 +272,10 @@
             badgeText = '반려';
         }
 
+        if (user.fixed_numbers) {
+            fixedDataCache.set(user.name, { numbers: user.fixed_numbers, reason: user.fixed_reason });
+        }
+
         let numbersHTML;
         if (isRejected) {
             numbersHTML = `<div class="user-card__numbers">사용할 수 없는 이름입니다.</div>`;
@@ -213,7 +283,12 @@
             numbersHTML = `<div class="user-card__numbers">번호 생성 대기중...</div>`;
         } else {
             const winningNumbers = user.winning_numbers || [];
-            const weeklyReasonHTML = user.weekly_reason ? `<div class="user-card__reason">"${escapeHtml(user.weekly_reason)}"</div>` : '';
+            const weeklyReasonHTML = buildReasonHTML(user.weekly_reason, user.weekly_reason_detail || '');
+            const fixedBtnHTML = user.fixed_numbers
+                ? `<div style="margin-top: var(--space-sm); text-align: center;">
+                    <button class="btn-fixed-view btn-register" data-name="${escapeHtml(user.name)}" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; background: transparent; border: 1px solid var(--color-primary); color: var(--color-primary);">고유번호 보기</button>
+                   </div>`
+                : '';
             numbersHTML = `<div class="user-card__numbers">
                 ${user.weekly_numbers.map(n => {
                 const isMatched = winningNumbers.includes(n);
@@ -221,9 +296,7 @@
             }).join('')}
             </div>
             ${weeklyReasonHTML}
-            <div style="margin-top: var(--space-sm); text-align: center;">
-                <a href="fixed/?name=${encodeURIComponent(user.name)}" class="btn-register" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; text-decoration: none; display: inline-block; background: transparent; border: 1px solid var(--color-primary); color: var(--color-primary);">고유번호 보기</a>
-            </div>`;
+            ${fixedBtnHTML}`;
         }
 
         const metaHTML = [];
@@ -282,8 +355,11 @@
                 name: json.data.name,
                 status: json.data.status || 'pending',
                 weekly_numbers: json.data.weekly_numbers || null,
+                weekly_reason: json.data.weekly_reason || null,
+                weekly_reason_detail: json.data.weekly_reason_detail || null,
                 round_number: json.data.round_number || null,
                 fixed_numbers: json.data.fixed_numbers || null,
+                fixed_reason: json.data.fixed_reason || null,
                 matched_count: null,
                 participation_count: json.data.weekly_numbers ? 1 : 0,
             };
@@ -378,8 +454,16 @@
                 <div style="font-size: 0.85rem; color: var(--color-text-muted); font-weight: normal;">조금만 기다려주시면 곧 등록 처리가 완료됩니다!</div>
             </div>`;
         } else {
+            if (user.fixed_numbers) {
+                fixedDataCache.set(user.name, { numbers: user.fixed_numbers, reason: user.fixed_reason });
+            }
             const winningNumbers = user.winning_numbers || [];
-            const weeklyReasonHTML = user.weekly_reason ? `<div class="user-card__reason" style="margin-top: var(--space-md); font-size: 0.95rem;">"${escapeHtml(user.weekly_reason)}"</div>` : '';
+            const weeklyReasonHTML = buildReasonHTML(user.weekly_reason, user.weekly_reason_detail || '', 'margin-top: var(--space-md); font-size: 0.95rem;');
+            const fixedBtnHTML = user.fixed_numbers
+                ? `<div style="margin-top: var(--space-lg); text-align: center;">
+                    <button class="btn-fixed-view btn-register" data-name="${escapeHtml(user.name)}">고유번호 보기</button>
+                   </div>`
+                : '';
             numbersHTML = `<div class="user-card__numbers">
                 ${user.weekly_numbers.map(n => {
                 const isMatched = winningNumbers.includes(n);
@@ -387,9 +471,7 @@
             }).join('')}
             </div>
             ${weeklyReasonHTML}
-            <div style="margin-top: var(--space-lg); text-align: center;">
-                <a href="fixed/?name=${encodeURIComponent(user.name)}" class="btn-register" style="text-decoration: none; display: inline-block;">고유번호 자세히 보기</a>
-            </div>`;
+            ${fixedBtnHTML}`;
         }
 
         const metaHTML = [];

@@ -59,10 +59,22 @@ class DrawService
             return ['error' => 'NO_ACTIVE_PROMPT', 'message' => '활성 프롬프트가 없습니다: ' . implode(', ', $missing)];
         }
 
+        // 현재 회차 확보 (Gemini 호출 전 — 프롬프트에 회차 정보 주입 목적)
+        $currentRound = RoundHelper::ensureCurrentRound();
+        $roundId = (int) $currentRound['id'];
+        $roundNumber = (int) $currentRound['round_number'];
+        $drawDate = $currentRound['draw_date'];
+
+        $weeklyPromptContent = str_replace(
+            ['{round_number}', '{draw_date}'],
+            [$roundNumber, $drawDate],
+            $weeklyPrompt['content']
+        );
+
         // Gemini 1회 호출로 두 번호 동시 생성
         $result = $this->gemini->generateBothNumbers(
             $fixedPrompt['content'],
-            $weeklyPrompt['content'],
+            $weeklyPromptContent,
             $name
         );
 
@@ -87,20 +99,17 @@ class DrawService
             'fixed_reason' => $result['fixed_reason'],
         ], 'draw');
 
-        // 2) 현재 회차 자동 확보 + 주간번호 저장
+        // 2) 주간번호 저장
         $weeklyNumbers = $result['weekly_numbers'];
         $weeklyReason = $result['weekly_reason'];
-        $roundNumber = null;
-        $currentRound = RoundHelper::ensureCurrentRound();
-        $roundId = (int) $currentRound['id'];
-        $roundNumber = (int) $currentRound['round_number'];
+        $weeklyReasonDetail = $result['weekly_reason_detail'] ?? '';
 
         // 이미 해당 회차에 번호가 있는지 확인
         $pdo = getDatabase();
         $stmt = $pdo->prepare("SELECT id FROM name_rounds WHERE name_id = ? AND round_id = ?");
         $stmt->execute([$nameId, $roundId]);
         if (!$stmt->fetch()) {
-            $this->round->saveNameNumbers($nameId, $roundId, $weeklyNumbers, $weeklyReason);
+            $this->round->saveNameNumbers($nameId, $roundId, $weeklyNumbers, $weeklyReason, $weeklyReasonDetail);
             logInfo('즉시 등록 — 주간번호 저장', [
                 'name' => $name,
                 'round' => $roundNumber,
@@ -125,6 +134,7 @@ class DrawService
             'fixed_reason' => $result['fixed_reason'],
             'weekly_numbers' => $weeklyNumbers,
             'weekly_reason' => $weeklyReason,
+            'weekly_reason_detail' => $weeklyReasonDetail,
             'round_number' => $roundNumber,
         ];
     }
@@ -285,6 +295,13 @@ class DrawService
         $generated = 0;
         $failed = 0;
 
+        // 프롬프트에 회차 정보 주입
+        $promptContent = str_replace(
+            ['{round_number}', '{draw_date}'],
+            [$roundNumber, $drawDate],
+            $activePrompt['content']
+        );
+
         // 청크 분할
         $chunks = array_chunk($activeNames, $this->chunkSize);
 
@@ -293,7 +310,7 @@ class DrawService
             logInfo("청크 처리", ['chunk' => $i + 1, 'total_chunks' => count($chunks), 'names' => $names], 'draw');
 
             // Gemini API 호출
-            $results = $this->gemini->generateNumbers($activePrompt['content'], $names);
+            $results = $this->gemini->generateNumbers($promptContent, $names);
 
             // 결과 매칭 + DB 저장
             foreach ($chunk as $activeName) {
@@ -304,7 +321,8 @@ class DrawService
                         (int) $activeName['id'],
                         $roundId,
                         $matched['numbers'],
-                        $matched['reason'] ?? ''
+                        $matched['reason'] ?? '',
+                        $matched['reason_detail'] ?? ''
                     );
                     $generated++;
                 } else {
@@ -368,12 +386,19 @@ class DrawService
             return ['skipped' => true, 'reason' => 'NO_PROMPT'];
         }
 
+        // 프롬프트에 회차 정보 주입
+        $promptContent = str_replace(
+            ['{round_number}', '{draw_date}'],
+            [$latestRound['round_number'], $latestRound['draw_date']],
+            $activePrompt['content']
+        );
+
         // Gemini API 호출 (이름 1개)
-        $results = $this->gemini->generateNumbers($activePrompt['content'], [$name]);
+        $results = $this->gemini->generateNumbers($promptContent, [$name]);
         $matched = $this->findResultByName($results, $name);
 
         if ($matched) {
-            $this->round->saveNameNumbers($nameId, $roundId, $matched['numbers']);
+            $this->round->saveNameNumbers($nameId, $roundId, $matched['numbers'], $matched['reason'] ?? '', $matched['reason_detail'] ?? '');
             logInfo('단일 이름 주간번호 생성 성공', [
                 'name' => $name,
                 'round' => $latestRound['round_number'],
@@ -384,6 +409,276 @@ class DrawService
 
         logError('단일 이름 주간번호 생성 실패', ['name' => $name], 'draw');
         return ['skipped' => true, 'reason' => 'GEMINI_FAILED'];
+    }
+
+    /**
+     * 고유번호 다시 뽑기: 선택된 이름(또는 전체)의 고유번호를 재생성
+     * 기존 번호는 fixed_number_history에 자동 보존됨 (Name::activateWithFixedNumbers 내에서 처리)
+     *
+     * @param int[]|null $nameIds null이면 active 전체
+     */
+    public function redrawFixedNumbers(?array $nameIds): array
+    {
+        $startTime = microtime(true);
+        logInfo('고유번호 다시 뽑기 시작', ['name_ids' => $nameIds], 'draw');
+
+        // fixed 프롬프트 조회
+        $activePrompt = $this->prompt->getActive('fixed');
+        if (!$activePrompt) {
+            logError('활성 fixed 프롬프트 없음', [], 'draw');
+            return ['error' => 'NO_ACTIVE_PROMPT', 'message' => '활성 fixed 프롬프트가 없습니다.'];
+        }
+
+        // 대상 이름 조회
+        if ($nameIds === null) {
+            $targetNames = $this->name->getActive();
+        } else {
+            $targetNames = array_filter(
+                array_map(fn(int $id) => $this->name->findById($id), $nameIds),
+                fn($n) => $n !== null && $n['status'] === 'active'
+            );
+            $targetNames = array_values($targetNames);
+        }
+
+        if (empty($targetNames)) {
+            return ['error' => 'NO_TARGETS', 'message' => '대상 이름이 없습니다.'];
+        }
+
+        $generated = 0;
+        $failed = 0;
+        $chunks = array_chunk($targetNames, $this->chunkSize);
+
+        foreach ($chunks as $i => $chunk) {
+            $names = array_column($chunk, 'name');
+            logInfo('청크 처리', ['chunk' => $i + 1, 'names' => $names], 'draw');
+
+            $results = $this->gemini->generateNumbers($activePrompt['content'], $names);
+
+            foreach ($chunk as $target) {
+                $matched = $this->findResultByName($results, $target['name']);
+                if ($matched) {
+                    $this->name->activateWithFixedNumbers(
+                        (int) $target['id'],
+                        $matched['numbers'],
+                        $matched['reason'] ?? null
+                    );
+                    $generated++;
+                    logInfo('고유번호 재생성 성공', ['name' => $target['name'], 'numbers' => $matched['numbers']], 'draw');
+                } else {
+                    $failed++;
+                    logError('고유번호 재생성 실패', ['name' => $target['name']], 'draw');
+                }
+            }
+
+            if ($i < count($chunks) - 1) {
+                sleep($this->delaySeconds);
+            }
+        }
+
+        $elapsed = round(microtime(true) - $startTime, 1);
+        logInfo('고유번호 다시 뽑기 완료', ['generated' => $generated, 'failed' => $failed, 'elapsed' => $elapsed], 'draw');
+
+        return [
+            'total' => count($targetNames),
+            'generated' => $generated,
+            'failed' => $failed,
+            'elapsed_seconds' => $elapsed,
+        ];
+    }
+
+    /**
+     * 주간번호 다시 뽑기: 선택된 이름(또는 전체)의 현재 회차 주간번호를 재생성
+     * ON DUPLICATE KEY UPDATE로 기존 번호 덮어씀
+     *
+     * @param int[]|null $nameIds null이면 active 전체
+     */
+    public function redrawWeekly(?array $nameIds): array
+    {
+        $startTime = microtime(true);
+        logInfo('주간번호 다시 뽑기 시작', ['name_ids' => $nameIds], 'draw');
+
+        $currentRound = RoundHelper::ensureCurrentRound();
+        $roundId = (int) $currentRound['id'];
+        $roundNumber = (int) $currentRound['round_number'];
+        $drawDate = $currentRound['draw_date'];
+
+        $activePrompt = $this->prompt->getActive('weekly');
+        if (!$activePrompt) {
+            logError('활성 weekly 프롬프트 없음', [], 'draw');
+            return ['error' => 'NO_ACTIVE_PROMPT', 'message' => '활성 weekly 프롬프트가 없습니다.'];
+        }
+
+        // 대상 이름 조회
+        if ($nameIds === null) {
+            $targetNames = $this->name->getActive();
+        } else {
+            $targetNames = array_filter(
+                array_map(fn(int $id) => $this->name->findById($id), $nameIds),
+                fn($n) => $n !== null && $n['status'] === 'active'
+            );
+            $targetNames = array_values($targetNames);
+        }
+
+        if (empty($targetNames)) {
+            return ['error' => 'NO_TARGETS', 'message' => '대상 이름이 없습니다.'];
+        }
+
+        $promptContent = str_replace(
+            ['{round_number}', '{draw_date}'],
+            [$roundNumber, $drawDate],
+            $activePrompt['content']
+        );
+
+        $generated = 0;
+        $failed = 0;
+        $chunks = array_chunk($targetNames, $this->chunkSize);
+
+        foreach ($chunks as $i => $chunk) {
+            $names = array_column($chunk, 'name');
+            logInfo('청크 처리', ['chunk' => $i + 1, 'names' => $names], 'draw');
+
+            $results = $this->gemini->generateNumbers($promptContent, $names);
+
+            foreach ($chunk as $target) {
+                $matched = $this->findResultByName($results, $target['name']);
+                if ($matched) {
+                    $this->round->saveNameNumbers(
+                        (int) $target['id'],
+                        $roundId,
+                        $matched['numbers'],
+                        $matched['reason'] ?? '',
+                        $matched['reason_detail'] ?? ''
+                    );
+                    $generated++;
+                    logInfo('주간번호 재생성 성공', ['name' => $target['name'], 'round' => $roundNumber, 'numbers' => $matched['numbers']], 'draw');
+                } else {
+                    $failed++;
+                    logError('주간번호 재생성 실패', ['name' => $target['name'], 'round' => $roundNumber], 'draw');
+                }
+            }
+
+            if ($i < count($chunks) - 1) {
+                sleep($this->delaySeconds);
+            }
+        }
+
+        $elapsed = round(microtime(true) - $startTime, 1);
+        logInfo('주간번호 다시 뽑기 완료', [
+            'round' => $roundNumber,
+            'total' => count($targetNames),
+            'generated' => $generated,
+            'failed' => $failed,
+            'elapsed' => $elapsed,
+        ], 'draw');
+
+        return [
+            'round_number' => $roundNumber,
+            'total' => count($targetNames),
+            'generated' => $generated,
+            'failed' => $failed,
+            'elapsed_seconds' => $elapsed,
+        ];
+    }
+
+    /**
+     * 현재 회차 누락 주간번호 보충: active 중 이번 회차 name_rounds 없는 이름에 생성
+     */
+    public function fillMissingWeekly(): array
+    {
+        $startTime = microtime(true);
+        logInfo('누락 주간번호 보충 시작', [], 'draw');
+
+        $currentRound = RoundHelper::ensureCurrentRound();
+        $roundId = (int) $currentRound['id'];
+        $roundNumber = (int) $currentRound['round_number'];
+        $drawDate = $currentRound['draw_date'];
+
+        // active 이름 중 이번 회차 name_rounds 없는 것 조회
+        $pdo = getDatabase();
+        $stmt = $pdo->prepare("
+            SELECT n.id, n.name
+            FROM names n
+            LEFT JOIN name_rounds nr ON nr.name_id = n.id AND nr.round_id = ?
+            WHERE n.status = 'active' AND nr.id IS NULL
+            ORDER BY n.id
+        ");
+        $stmt->execute([$roundId]);
+        $missingNames = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($missingNames)) {
+            logInfo('누락 없음', ['round' => $roundNumber], 'draw');
+            return [
+                'round_number' => $roundNumber,
+                'missing' => 0,
+                'generated' => 0,
+                'failed' => 0,
+                'elapsed_seconds' => 0,
+            ];
+        }
+
+        logInfo('누락 이름 발견', ['count' => count($missingNames), 'round' => $roundNumber], 'draw');
+
+        $activePrompt = $this->prompt->getActive('weekly');
+        if (!$activePrompt) {
+            logError('활성 weekly 프롬프트 없음', [], 'draw');
+            return ['error' => 'NO_ACTIVE_PROMPT', 'message' => '활성 weekly 프롬프트가 없습니다.'];
+        }
+
+        $promptContent = str_replace(
+            ['{round_number}', '{draw_date}'],
+            [$roundNumber, $drawDate],
+            $activePrompt['content']
+        );
+
+        $generated = 0;
+        $failed = 0;
+        $chunks = array_chunk($missingNames, $this->chunkSize);
+
+        foreach ($chunks as $i => $chunk) {
+            $names = array_column($chunk, 'name');
+            logInfo('청크 처리', ['chunk' => $i + 1, 'total_chunks' => count($chunks), 'names' => $names], 'draw');
+
+            $results = $this->gemini->generateNumbers($promptContent, $names);
+
+            foreach ($chunk as $target) {
+                $matched = $this->findResultByName($results, $target['name']);
+                if ($matched) {
+                    $this->round->saveNameNumbers(
+                        (int) $target['id'],
+                        $roundId,
+                        $matched['numbers'],
+                        $matched['reason'] ?? '',
+                        $matched['reason_detail'] ?? ''
+                    );
+                    $generated++;
+                    logInfo('누락 주간번호 생성 성공', ['name' => $target['name'], 'round' => $roundNumber], 'draw');
+                } else {
+                    $failed++;
+                    logError('누락 주간번호 생성 실패', ['name' => $target['name'], 'round' => $roundNumber], 'draw');
+                }
+            }
+
+            if ($i < count($chunks) - 1) {
+                sleep($this->delaySeconds);
+            }
+        }
+
+        $elapsed = round(microtime(true) - $startTime, 1);
+        logInfo('누락 주간번호 보충 완료', [
+            'round' => $roundNumber,
+            'missing' => count($missingNames),
+            'generated' => $generated,
+            'failed' => $failed,
+            'elapsed' => $elapsed,
+        ], 'draw');
+
+        return [
+            'round_number' => $roundNumber,
+            'missing' => count($missingNames),
+            'generated' => $generated,
+            'failed' => $failed,
+            'elapsed_seconds' => $elapsed,
+        ];
     }
 
     /**

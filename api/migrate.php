@@ -38,13 +38,9 @@ if (preg_match('/^Bearer\s+(.+)$/i', $authHeader, $matches)) {
     $token = $_GET['token']; // 브라우저 테스트용 토큰
 }
 
-$adminToken = env('ADMIN_TOKEN', '');
-if (empty($adminToken) || $token !== $adminToken) {
-    logWarn('마이그레이션 API 인증 실패', ['token' => substr($token, 0, 5) . '...'], 'api');
-    http_response_code(401);
-    echo json_encode(['success' => false, 'error' => '인증 실패'], JSON_UNESCAPED_UNICODE);
-    exit;
-}
+// GET 파라미터 또는 Bearer 헤더의 토큰을 $_GET['token']으로 통일 후 requireAdminToken() 사용
+$_GET['token'] = $token;
+requireAdminToken();
 
 $migrationsDir = __DIR__ . '/../database/migrations';
 

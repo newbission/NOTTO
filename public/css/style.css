@@ -306,6 +306,43 @@ a:hover {
     margin-top: calc(var(--space-sm) * -1);
 }
 
+.reason-text {
+    display: block;
+}
+
+.reason-short {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* 이전 버전 호환 */
+.reason-text--collapsed {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.reason-toggle {
+    background: none;
+    border: none;
+    color: var(--color-primary-light);
+    font-size: 0.78rem;
+    font-family: var(--font-main);
+    cursor: pointer;
+    padding: 2px var(--space-xs);
+    margin-top: var(--space-xs);
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.reason-toggle:hover {
+    opacity: 1;
+    color: var(--color-accent);
+}
+
 .user-card__header {
     display: flex;
     justify-content: space-between;
@@ -354,7 +391,7 @@ a:hover {
     gap: var(--space-md);
 }
 
-/* ─── Number Ball (Glass Marble) ─── */
+/* ─── Number Ball ─── */
 .ball {
     display: inline-flex;
     align-items: center;
@@ -748,6 +785,93 @@ a:hover {
     border-color: var(--color-success);
 }
 
+/* ─── Fixed Numbers Modal ─── */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-md);
+}
+
+.modal {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl) var(--space-lg);
+    max-width: 400px;
+    width: 100%;
+    text-align: center;
+    position: relative;
+    box-shadow: var(--shadow-glow);
+    animation: modal-in 0.2s ease;
+}
+
+@keyframes modal-in {
+    from { transform: scale(0.92); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+}
+
+.modal__close {
+    position: absolute;
+    top: var(--space-md);
+    right: var(--space-md);
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    transition: color 0.2s;
+    line-height: 1;
+}
+
+.modal__close:hover {
+    color: var(--color-text);
+}
+
+.modal__subtitle {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: var(--space-sm);
+}
+
+.modal__name {
+    font-size: 2rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--color-primary-light), var(--color-accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: var(--space-lg);
+}
+
+.modal__numbers {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-sm);
+    flex-wrap: nowrap;
+    margin-bottom: var(--space-md);
+    overflow-x: auto;
+    padding: var(--space-sm) 0;
+}
+
+.modal__detail-btn {
+    display: inline-block;
+    margin-top: var(--space-lg);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
 /* ─── Responsive ─── */
 @media (max-width: 480px) {
     .hero__logo {
@@ -790,12 +914,12 @@ a:hover {
 
 @media (min-width: 769px) {
     .results__grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: var(--space-md);
+        columns: 2;
+        column-gap: var(--space-md);
     }
 
     .results__grid .user-card {
-        margin-bottom: 0;
+        break-inside: avoid;
+        margin-bottom: var(--space-md);
     }
 }

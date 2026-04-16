@@ -53,5 +53,6 @@ jsonResponse([
     'name' => $result['name'],
     'status' => $result['status'],
     'fixed_numbers' => $fixedNumbers,
+    'fixed_reason' => $result['fixed_reason'] ?? null,
     'created_at' => $result['created_at'],
 ]);

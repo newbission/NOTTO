@@ -86,13 +86,13 @@ class Round
     /**
      * name_rounds에 번호 저장
      */
-    public function saveNameNumbers(int $nameId, int $roundId, array $numbers, ?string $reason = null): void
+    public function saveNameNumbers(int $nameId, int $roundId, array $numbers, ?string $reason = null, ?string $reasonDetail = null): void
     {
         $stmt = $this->pdo->prepare(
-            "INSERT INTO name_rounds (name_id, round_id, numbers, reason) VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE numbers = VALUES(numbers), reason = VALUES(reason)"
+            "INSERT INTO name_rounds (name_id, round_id, numbers, reason, reason_detail) VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE numbers = VALUES(numbers), reason = VALUES(reason), reason_detail = VALUES(reason_detail)"
         );
-        $stmt->execute([$nameId, $roundId, json_encode($numbers), $reason]);
+        $stmt->execute([$nameId, $roundId, json_encode($numbers), $reason, $reasonDetail]);
         logDebug('이름별 번호 저장', ['name_id' => $nameId, 'round_id' => $roundId, 'numbers' => $numbers], 'model');
     }
 

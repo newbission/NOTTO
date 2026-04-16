@@ -65,9 +65,10 @@ class Name
     public function search(string $query, int $offset, int $limit): array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT n.*, 
+            "SELECT n.*,
                     nr.numbers AS weekly_numbers,
                     nr.reason AS weekly_reason,
+                    nr.reason_detail AS weekly_reason_detail,
                     nr.matched_count,
                     r.round_number,
                     r.winning_numbers,
@@ -75,7 +76,7 @@ class Name
                     COALESCE(pc.participation_count, 0) AS participation_count
              FROM names n
              LEFT JOIN (
-                 SELECT nr2.name_id, nr2.numbers, nr2.reason, nr2.matched_count, nr2.round_id
+                 SELECT nr2.name_id, nr2.numbers, nr2.reason, nr2.reason_detail, nr2.matched_count, nr2.round_id
                  FROM name_rounds nr2
                  WHERE nr2.round_id = (SELECT MAX(id) FROM rounds)
              ) nr ON n.id = nr.name_id
@@ -117,12 +118,13 @@ class Name
         $sql = "SELECT n.id, n.name, n.status, n.created_at, n.updated_at, n.fixed_numbers, n.fixed_reason,
                        nr.numbers AS weekly_numbers,
                        nr.reason AS weekly_reason,
+                       nr.reason_detail AS weekly_reason_detail,
                        nr.matched_count,
                        r.round_number,
                        COALESCE(pc.participation_count, 0) AS participation_count
                 FROM names n
                 LEFT JOIN (
-                    SELECT nr2.name_id, nr2.numbers, nr2.reason, nr2.matched_count, nr2.round_id
+                    SELECT nr2.name_id, nr2.numbers, nr2.reason, nr2.reason_detail, nr2.matched_count, nr2.round_id
                     FROM name_rounds nr2
                     WHERE nr2.round_id = (SELECT MAX(id) FROM rounds)
                 ) nr ON n.id = nr.name_id
@@ -173,14 +175,34 @@ class Name
 
     /**
      * 고유번호 저장 + active 상태 전환
+     * 기존 고유번호가 있으면 fixed_number_history에 먼저 저장
      */
     public function activateWithFixedNumbers(int $id, array $numbers, ?string $reason = null): void
     {
+        // 기존 고유번호 히스토리 보존
+        $existing = $this->findById($id);
+        if ($existing && !empty($existing['fixed_numbers'])) {
+            $this->saveFixedNumbersToHistory($id, $existing['fixed_numbers'], $existing['fixed_reason'] ?? null);
+        }
+
         $stmt = $this->pdo->prepare(
             "UPDATE names SET fixed_numbers = ?, fixed_reason = ?, status = 'active' WHERE id = ?"
         );
         $stmt->execute([json_encode($numbers), $reason, $id]);
         logInfo('이름 활성화 + 고유번호 부여', ['id' => $id, 'numbers' => $numbers], 'model');
+    }
+
+    /**
+     * 고유번호 히스토리 저장 (덮어쓰기 전 호출)
+     * numbers는 JSON 문자열 그대로 저장
+     */
+    private function saveFixedNumbersToHistory(int $nameId, string $numbersJson, ?string $reason): void
+    {
+        $stmt = $this->pdo->prepare(
+            "INSERT INTO fixed_number_history (name_id, numbers, reason) VALUES (?, ?, ?)"
+        );
+        $stmt->execute([$nameId, $numbersJson, $reason]);
+        logInfo('고유번호 히스토리 저장', ['name_id' => $nameId], 'model');
     }
 
     /**
@@ -199,7 +221,7 @@ class Name
     public function getFixedNumbers(string $name): ?array
     {
         $stmt = $this->pdo->prepare(
-            "SELECT id, name, fixed_numbers, status, created_at 
+            "SELECT id, name, fixed_numbers, fixed_reason, status, created_at
              FROM names WHERE name = ? AND status != 'rejected'"
         );
         $stmt->execute([$name]);

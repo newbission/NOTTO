@@ -37,6 +37,11 @@ $data = array_map(function ($row) {
         'status' => $row['status'],
         'weekly_numbers' => isset($row['weekly_numbers']) && $row['weekly_numbers']
             ? json_decode($row['weekly_numbers'], true) : null,
+        'weekly_reason' => $row['weekly_reason'] ?? null,
+        'weekly_reason_detail' => $row['weekly_reason_detail'] ?? null,
+        'fixed_numbers' => isset($row['fixed_numbers']) && $row['fixed_numbers']
+            ? json_decode($row['fixed_numbers'], true) : null,
+        'fixed_reason' => $row['fixed_reason'] ?? null,
         'round_number' => isset($row['round_number']) && $row['round_number']
             ? (int) $row['round_number'] : null,
         'matched_count' => isset($row['matched_count']) && $row['matched_count'] !== null

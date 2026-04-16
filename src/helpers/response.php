@@ -67,17 +67,27 @@ function requireMethod(string $method): void
 }
 
 /**
- * 관리자 토큰 검증
+ * 오늘의 세션 토큰 생성 (ADMIN_KEY + 날짜 기반, 자정 만료)
+ */
+function generateAdminSessionToken(): string
+{
+    $key = env('ADMIN_KEY', '');
+    $period = (string) floor(time() / (86400 * 30)); // 30일마다 갱신
+    return hash_hmac('sha256', $period, $key);
+}
+
+/**
+ * 관리자 세션 토큰 검증
  */
 function requireAdminToken(): void
 {
     $token = $_GET['token'] ?? $_POST['token'] ?? '';
 
-    if (empty($token) || $token !== env('ADMIN_TOKEN')) {
-        logError('관리자 토큰 인증 실패', [
+    if (empty($token) || !hash_equals(generateAdminSessionToken(), $token)) {
+        logError('관리자 인증 실패', [
             'uri' => $_SERVER['REQUEST_URI'] ?? '',
             'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
         ], 'security');
-        errorResponse(401, 'INVALID_TOKEN', '유효하지 않은 관리자 토큰입니다.');
+        errorResponse(401, 'INVALID_TOKEN', '유효하지 않은 토큰입니다.');
     }
 }

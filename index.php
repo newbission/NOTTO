@@ -68,6 +68,17 @@
     <!-- Toast Notification -->
     <div class="toast" id="toast"></div>
 
+    <!-- Fixed Numbers Modal -->
+    <div class="modal-overlay" id="fixed-modal" style="display:none;" role="dialog" aria-modal="true">
+        <div class="modal">
+            <button class="modal__close" id="modal-close" aria-label="닫기">✕</button>
+            <p class="modal__subtitle">운명의 고유번호</p>
+            <div class="modal__name" id="modal-name"></div>
+            <div class="modal__numbers" id="modal-numbers"></div>
+            <a class="btn-register modal__detail-btn" id="modal-detail-link" href="">자세히 보기</a>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="nav-footer">
         <p>NOTTO — AI 기반 로또 번호 추천 서비스</p>

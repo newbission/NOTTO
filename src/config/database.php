@@ -12,7 +12,7 @@ declare(strict_types=1);
 /**
  * .env 파일을 파싱하여 환경 변수로 로드
  */
-function loadEnv(string $path): void
+function loadEnv(string $path, bool $override = false): void
 {
     if (!file_exists($path)) {
         return;
@@ -31,8 +31,8 @@ function loadEnv(string $path): void
             $key = trim($key);
             $value = trim($value);
 
-            // 시스템 환경변수(Docker 등)가 이미 설정된 경우 스킵
-            if (getenv($key) !== false) {
+            // override=false: 시스템 환경변수(Docker 등)가 이미 설정된 경우 스킵
+            if (!$override && getenv($key) !== false) {
                 continue;
             }
 
@@ -58,9 +58,10 @@ function env(string $key, string $default = ''): string
     return getenv($key) ?: ($_ENV[$key] ?? $default);
 }
 
-// .env 로드 (프로젝트 루트에서 찾기)
-$envPath = __DIR__ . '/../../.env';
-loadEnv($envPath);
+// .env → .env.local 순서로 로드 (.env.local이 .env를 덮어씀)
+$envBase = __DIR__ . '/../../.env';
+loadEnv($envBase);
+loadEnv($envBase . '.local', override: true);
 
 /**
  * 글로벌 에러/예외 핸들러 — 모든 PHP 오류를 JSON으로 반환
@@ -82,7 +83,7 @@ function _nottoJsonErrorResponse(string $code, string $message, int $httpCode = 
             'message' => $message,
         ],
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
+    exit(1);
 }
 
 set_exception_handler(function (Throwable $e) {

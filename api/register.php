@@ -73,7 +73,10 @@ if (env('DIRECT_REGISTER') === 'true') {
         'name' => $directResult['name'],
         'status' => $directResult['status'],
         'fixed_numbers' => $directResult['fixed_numbers'],
+        'fixed_reason' => $directResult['fixed_reason'],
         'weekly_numbers' => $directResult['weekly_numbers'],
+        'weekly_reason' => $directResult['weekly_reason'],
+        'weekly_reason_detail' => $directResult['weekly_reason_detail'] ?? null,
         'round_number' => $directResult['round_number'],
         'message' => '등록이 완료되었습니다. 고유번호와 주간번호가 생성되었습니다!',
     ], [], 201);

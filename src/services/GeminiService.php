@@ -27,6 +27,9 @@ class GeminiService
     /** 최대 재시도 횟수 */
     private int $maxRetries = 3;
 
+    /** 번호 생성 다양성 (0.0~2.0, 높을수록 다양한 번호 생성) */
+    private float $temperature = 1.8;
+
     public function __construct(?string $apiKey = null, ?string $model = null)
     {
         $this->apiKey = $apiKey ?? env('GEMINI_API_KEY');
@@ -52,6 +55,7 @@ class GeminiService
                 ['parts' => [['text' => $prompt]]]
             ],
             'generationConfig' => [
+                'temperature' => $this->temperature,
                 'responseMimeType' => 'application/json',
                 'responseSchema' => [
                     'type' => 'ARRAY',
@@ -63,9 +67,10 @@ class GeminiService
                                 'type' => 'ARRAY',
                                 'items' => ['type' => 'INTEGER']
                             ],
-                            'reason' => ['type' => 'STRING']
+                            'reason' => ['type' => 'STRING'],
+                            'reason_detail' => ['type' => 'STRING']
                         ],
-                        'required' => ['name', 'numbers', 'reason']
+                        'required' => ['name', 'numbers', 'reason', 'reason_detail']
                     ]
                 ]
             ]
@@ -118,6 +123,7 @@ PROMPT;
                 ['parts' => [['text' => $combinedPrompt]]]
             ],
             'generationConfig' => [
+                'temperature' => $this->temperature,
                 'responseMimeType' => 'application/json',
                 'responseSchema' => [
                     'type' => 'OBJECT',
@@ -140,7 +146,8 @@ PROMPT;
                                 'properties' => [
                                     'name' => ['type' => 'STRING'],
                                     'numbers' => ['type' => 'ARRAY', 'items' => ['type' => 'INTEGER']],
-                                    'reason' => ['type' => 'STRING']
+                                    'reason' => ['type' => 'STRING'],
+                                    'reason_detail' => ['type' => 'STRING']
                                 ]
                             ]
                         ]
@@ -169,6 +176,7 @@ PROMPT;
         $weeklyNums = $this->validateAndCleanNumbers($weeklyRaw['numbers'] ?? []);
         $fixedReason = $fixedRaw['reason'] ?? '';
         $weeklyReason = $weeklyRaw['reason'] ?? '';
+        $weeklyReasonDetail = $weeklyRaw['reason_detail'] ?? '';
 
         if ($fixedNums === null || $weeklyNums === null) {
             logError('Gemini 통합 응답 번호 검증 실패', [
@@ -188,7 +196,8 @@ PROMPT;
             'fixed_numbers' => $fixedNums,
             'fixed_reason' => $fixedReason,
             'weekly_numbers' => $weeklyNums,
-            'weekly_reason' => $weeklyReason
+            'weekly_reason' => $weeklyReason,
+            'weekly_reason_detail' => $weeklyReasonDetail,
         ];
     }
 
@@ -289,11 +298,13 @@ PROMPT;
             }
 
             $reason = $item['reason'] ?? '';
+            $reasonDetail = $item['reason_detail'] ?? '';
 
             $results[] = [
                 'name' => $item['name'],
                 'numbers' => $validNumbers,
-                'reason' => $reason
+                'reason' => $reason,
+                'reason_detail' => $reasonDetail,
             ];
         }
 
