@@ -13,11 +13,9 @@ require_once __DIR__ . '/../helpers/logger.php';
 
 class Prompt
 {
-    private PDO $pdo;
-
-    public function __construct()
+    private function pdo(): PDO
     {
-        $this->pdo = getDatabase();
+        return getDatabase();
     }
 
     /**
@@ -25,7 +23,7 @@ class Prompt
      */
     public function getActive(string $type): ?array
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "SELECT * FROM prompts WHERE type = ? AND is_active = 1 LIMIT 1"
         );
         $stmt->execute([$type]);
@@ -38,7 +36,7 @@ class Prompt
      */
     public function getAll(): array
     {
-        $stmt = $this->pdo->query(
+        $stmt = $this->pdo()->query(
             "SELECT * FROM prompts ORDER BY type, is_active DESC, created_at DESC"
         );
         return $stmt->fetchAll();
@@ -49,7 +47,7 @@ class Prompt
      */
     public function findById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM prompts WHERE id = ?");
+        $stmt = $this->pdo()->prepare("SELECT * FROM prompts WHERE id = ?");
         $stmt->execute([$id]);
         $result = $stmt->fetch();
         return $result ?: null;
@@ -64,12 +62,12 @@ class Prompt
             $this->deactivateAll($type);
         }
 
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "INSERT INTO prompts (type, content, is_active) VALUES (?, ?, ?)"
         );
         $stmt->execute([$type, $content, $activate ? 1 : 0]);
 
-        $id = (int) $this->pdo->lastInsertId();
+        $id = (int) $this->pdo()->lastInsertId();
         return $this->findById($id);
     }
 
@@ -85,7 +83,7 @@ class Prompt
 
         $this->deactivateAll($prompt['type']);
 
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "UPDATE prompts SET is_active = 1 WHERE id = ?"
         );
         $stmt->execute([$id]);
@@ -98,7 +96,7 @@ class Prompt
      */
     private function deactivateAll(string $type): void
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "UPDATE prompts SET is_active = 0 WHERE type = ? AND is_active = 1"
         );
         $stmt->execute([$type]);

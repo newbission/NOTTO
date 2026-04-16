@@ -13,11 +13,9 @@ require_once __DIR__ . '/../helpers/logger.php';
 
 class Round
 {
-    private PDO $pdo;
-
-    public function __construct()
+    private function pdo(): PDO
     {
-        $this->pdo = getDatabase();
+        return getDatabase();
     }
 
     /**
@@ -25,7 +23,7 @@ class Round
      */
     public function getLatest(): ?array
     {
-        $stmt = $this->pdo->query(
+        $stmt = $this->pdo()->query(
             "SELECT * FROM rounds ORDER BY round_number DESC LIMIT 1"
         );
         $result = $stmt->fetch();
@@ -37,7 +35,7 @@ class Round
      */
     public function findByRoundNumber(int $roundNumber): ?array
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "SELECT * FROM rounds WHERE round_number = ?"
         );
         $stmt->execute([$roundNumber]);
@@ -50,7 +48,7 @@ class Round
      */
     public function findById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM rounds WHERE id = ?");
+        $stmt = $this->pdo()->prepare("SELECT * FROM rounds WHERE id = ?");
         $stmt->execute([$id]);
         $result = $stmt->fetch();
         return $result ?: null;
@@ -61,12 +59,12 @@ class Round
      */
     public function create(int $roundNumber, string $drawDate): array
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "INSERT INTO rounds (round_number, draw_date) VALUES (?, ?)"
         );
         $stmt->execute([$roundNumber, $drawDate]);
 
-        $id = (int) $this->pdo->lastInsertId();
+        $id = (int) $this->pdo()->lastInsertId();
         logInfo('새 회차 생성', ['id' => $id, 'round_number' => $roundNumber, 'draw_date' => $drawDate], 'model');
         return $this->findById($id);
     }
@@ -76,7 +74,7 @@ class Round
      */
     public function setWinningNumbers(int $roundNumber, array $numbers, int $bonus): void
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "UPDATE rounds SET winning_numbers = ?, bonus_number = ? WHERE round_number = ?"
         );
         $stmt->execute([json_encode($numbers), $bonus, $roundNumber]);
@@ -88,7 +86,7 @@ class Round
      */
     public function saveNameNumbers(int $nameId, int $roundId, array $numbers, ?string $reason = null, ?string $reasonDetail = null): void
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "INSERT INTO name_rounds (name_id, round_id, numbers, reason, reason_detail) VALUES (?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE numbers = VALUES(numbers), reason = VALUES(reason), reason_detail = VALUES(reason_detail)"
         );
@@ -108,13 +106,13 @@ class Round
 
         $winningNumbers = json_decode($round['winning_numbers'], true);
 
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "SELECT id, numbers FROM name_rounds WHERE round_id = ?"
         );
         $stmt->execute([$roundId]);
         $nameRounds = $stmt->fetchAll();
 
-        $updateStmt = $this->pdo->prepare(
+        $updateStmt = $this->pdo()->prepare(
             "UPDATE name_rounds SET matched_count = ? WHERE id = ?"
         );
 

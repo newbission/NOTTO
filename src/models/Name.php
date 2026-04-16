@@ -13,11 +13,9 @@ require_once __DIR__ . '/../helpers/logger.php';
 
 class Name
 {
-    private PDO $pdo;
-
-    public function __construct()
+    private function pdo(): PDO
     {
-        $this->pdo = getDatabase();
+        return getDatabase();
     }
 
     /**
@@ -25,7 +23,7 @@ class Name
      */
     public function findByName(string $name): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM names WHERE name = ?");
+        $stmt = $this->pdo()->prepare("SELECT * FROM names WHERE name = ?");
         $stmt->execute([$name]);
         $result = $stmt->fetch();
 
@@ -38,7 +36,7 @@ class Name
      */
     public function findById(int $id): ?array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM names WHERE id = ?");
+        $stmt = $this->pdo()->prepare("SELECT * FROM names WHERE id = ?");
         $stmt->execute([$id]);
         $result = $stmt->fetch();
         return $result ?: null;
@@ -49,12 +47,12 @@ class Name
      */
     public function create(string $name): array
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "INSERT INTO names (name, status) VALUES (?, 'pending')"
         );
         $stmt->execute([$name]);
 
-        $id = (int) $this->pdo->lastInsertId();
+        $id = (int) $this->pdo()->lastInsertId();
         logInfo("이름 등록", ['id' => $id, 'name' => $name, 'status' => 'pending'], 'model');
         return $this->findById($id);
     }
@@ -64,7 +62,7 @@ class Name
      */
     public function search(string $query, int $offset, int $limit): array
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "SELECT n.*,
                     nr.numbers AS weekly_numbers,
                     nr.reason AS weekly_reason,
@@ -103,7 +101,7 @@ class Name
      */
     public function searchCount(string $query): int
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "SELECT COUNT(*) FROM names WHERE (name LIKE ? AND status = 'active') OR name = ?"
         );
         $stmt->execute(['%' . $query . '%', $query]);
@@ -138,14 +136,14 @@ class Name
                 ORDER BY $orderBy
                 LIMIT ? OFFSET ?";
 
-        $stmt = $this->pdo->prepare($sql);
+        $stmt = $this->pdo()->prepare($sql);
         $stmt->execute([$limit, $offset]);
         return $stmt->fetchAll();
     }
 
     public function countAll(): int
     {
-        $stmt = $this->pdo->query(
+        $stmt = $this->pdo()->query(
             "SELECT COUNT(*) FROM names WHERE status = 'active'"
         );
         return (int) $stmt->fetchColumn();
@@ -156,7 +154,7 @@ class Name
      */
     public function getPending(): array
     {
-        $stmt = $this->pdo->query(
+        $stmt = $this->pdo()->query(
             "SELECT * FROM names WHERE status = 'pending' ORDER BY created_at ASC"
         );
         return $stmt->fetchAll();
@@ -167,7 +165,7 @@ class Name
      */
     public function getActive(): array
     {
-        $stmt = $this->pdo->query(
+        $stmt = $this->pdo()->query(
             "SELECT * FROM names WHERE status = 'active' ORDER BY id ASC"
         );
         return $stmt->fetchAll();
@@ -185,7 +183,7 @@ class Name
             $this->saveFixedNumbersToHistory($id, $existing['fixed_numbers'], $existing['fixed_reason'] ?? null);
         }
 
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "UPDATE names SET fixed_numbers = ?, fixed_reason = ?, status = 'active' WHERE id = ?"
         );
         $stmt->execute([json_encode($numbers), $reason, $id]);
@@ -198,7 +196,7 @@ class Name
      */
     private function saveFixedNumbersToHistory(int $nameId, string $numbersJson, ?string $reason): void
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "INSERT INTO fixed_number_history (name_id, numbers, reason) VALUES (?, ?, ?)"
         );
         $stmt->execute([$nameId, $numbersJson, $reason]);
@@ -210,7 +208,7 @@ class Name
      */
     public function updateStatus(int $id, string $status): void
     {
-        $stmt = $this->pdo->prepare("UPDATE names SET status = ? WHERE id = ?");
+        $stmt = $this->pdo()->prepare("UPDATE names SET status = ? WHERE id = ?");
         $stmt->execute([$status, $id]);
         logInfo('이름 상태 변경', ['id' => $id, 'status' => $status], 'model');
     }
@@ -220,7 +218,7 @@ class Name
      */
     public function getFixedNumbers(string $name): ?array
     {
-        $stmt = $this->pdo->prepare(
+        $stmt = $this->pdo()->prepare(
             "SELECT id, name, fixed_numbers, fixed_reason, status, created_at
              FROM names WHERE name = ? AND status != 'rejected'"
         );
