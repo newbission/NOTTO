@@ -177,7 +177,7 @@ class Name
      * 고유번호 저장 + active 상태 전환
      * 기존 고유번호가 있으면 fixed_number_history에 먼저 저장
      */
-    public function activateWithFixedNumbers(int $id, array $numbers, ?string $reason = null, ?string $reasonDetail = null): void
+    public function activateWithFixedNumbers(int $id, array $numbers, ?string $reason = null): void
     {
         // 기존 고유번호 히스토리 보존
         $existing = $this->findById($id);
@@ -186,9 +186,9 @@ class Name
         }
 
         $stmt = $this->pdo->prepare(
-            "UPDATE names SET fixed_numbers = ?, fixed_reason = ?, fixed_reason_detail = ?, status = 'active' WHERE id = ?"
+            "UPDATE names SET fixed_numbers = ?, fixed_reason = ?, status = 'active' WHERE id = ?"
         );
-        $stmt->execute([json_encode($numbers), $reason, $reasonDetail, $id]);
+        $stmt->execute([json_encode($numbers), $reason, $id]);
         logInfo('이름 활성화 + 고유번호 부여', ['id' => $id, 'numbers' => $numbers], 'model');
     }
 

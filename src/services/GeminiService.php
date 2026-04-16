@@ -135,8 +135,7 @@ PROMPT;
                                 'properties' => [
                                     'name' => ['type' => 'STRING'],
                                     'numbers' => ['type' => 'ARRAY', 'items' => ['type' => 'INTEGER']],
-                                    'reason' => ['type' => 'STRING'],
-                                    'reason_detail' => ['type' => 'STRING']
+                                    'reason' => ['type' => 'STRING']
                                 ]
                             ]
                         ],
@@ -176,7 +175,6 @@ PROMPT;
         $fixedNums = $this->validateAndCleanNumbers($fixedRaw['numbers'] ?? []);
         $weeklyNums = $this->validateAndCleanNumbers($weeklyRaw['numbers'] ?? []);
         $fixedReason = $fixedRaw['reason'] ?? '';
-        $fixedReasonDetail = $fixedRaw['reason_detail'] ?? '';
         $weeklyReason = $weeklyRaw['reason'] ?? '';
         $weeklyReasonDetail = $weeklyRaw['reason_detail'] ?? '';
 
@@ -197,7 +195,6 @@ PROMPT;
         return [
             'fixed_numbers' => $fixedNums,
             'fixed_reason' => $fixedReason,
-            'fixed_reason_detail' => $fixedReasonDetail,
             'weekly_numbers' => $weeklyNums,
             'weekly_reason' => $weeklyReason,
             'weekly_reason_detail' => $weeklyReasonDetail,
