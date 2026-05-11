@@ -154,6 +154,10 @@ class RoundHelper
 
     /**
      * 다음 회차 계산 (주간 추첨용)
+     *
+     * ensureCurrentRound()가 미리 빈 회차를 생성해둔 경우,
+     * 해당 회차에 name_rounds가 0건이면 "아직 번호 미생성 회차"로 판단하여
+     * NOT_YET 대신 해당 회차를 반환한다.
      */
     public static function getNextRound(): array
     {
@@ -170,6 +174,28 @@ class RoundHelper
 
         // 최신 회차의 draw_date가 아직 지나지 않았으면 → 아직 현재 회차 기간 중
         if ($now->format('Y-m-d') <= $latestDrawDate->format('Y-m-d')) {
+            // 단, 해당 회차에 name_rounds가 0건이면 ensureCurrentRound()가 빈 회차만 만든 상태
+            // → 이 회차에 번호를 생성해야 하므로 NOT_YET 대신 해당 회차 반환
+            if (isset($current['id'])) {
+                $pdo = getDatabase();
+                $stmt = $pdo->prepare("SELECT COUNT(*) FROM name_rounds WHERE round_id = ?");
+                $stmt->execute([$current['id']]);
+                $nameRoundsCount = (int) $stmt->fetchColumn();
+
+                if ($nameRoundsCount === 0) {
+                    logInfo('최신 회차에 번호 미생성 상태 — 해당 회차를 추첨 대상으로 반환', [
+                        'round_number' => $current['round_number'],
+                        'draw_date' => $current['draw_date'],
+                    ], 'round');
+                    return [
+                        'round_number' => $current['round_number'],
+                        'draw_date' => $current['draw_date'],
+                        'skipped_rounds' => 0,
+                        'reuse_existing' => true,
+                    ];
+                }
+            }
+
             logInfo('다음 회차 생성 거부 — 현재 회차 기간 중', [
                 'latest_round' => $current['round_number'],
                 'draw_date' => $current['draw_date'],

@@ -258,23 +258,42 @@ class DrawService
             logInfo('주간 생성 전 대기열 처리 완료', $pendingResult, 'draw');
         }
 
-        // 회차 중복 체크
+        // 회차 중복 체크 — 빈 회차(name_rounds 0건)는 재활용
         $existingRound = $this->round->findByRoundNumber($roundNumber);
         if ($existingRound) {
-            logWarn('회차 중복', ['round' => $roundNumber], 'draw');
-            return ['error' => 'ROUND_ALREADY_EXISTS', 'message' => '이미 존재하는 회차입니다.'];
-        }
+            $pdo = getDatabase();
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM name_rounds WHERE round_id = ?");
+            $stmt->execute([$existingRound['id']]);
+            $nameRoundsCount = (int) $stmt->fetchColumn();
 
-        // weekly 프롬프트 조회
-        $activePrompt = $this->prompt->getActive('weekly');
-        if (!$activePrompt) {
-            logError('활성 weekly 프롬프트 없음', [], 'draw');
-            return ['error' => 'NO_ACTIVE_PROMPT', 'message' => '활성 weekly 프롬프트가 없습니다.'];
-        }
+            if ($nameRoundsCount > 0) {
+                logWarn('회차 중복 (번호 이미 생성됨)', ['round' => $roundNumber, 'name_rounds' => $nameRoundsCount], 'draw');
+                return ['error' => 'ROUND_ALREADY_EXISTS', 'message' => '이미 존재하는 회차입니다.'];
+            }
 
-        // 회차 생성
-        $round = $this->round->create($roundNumber, $drawDate);
-        $roundId = (int) $round['id'];
+            // 빈 회차 재활용 (ensureCurrentRound()가 미리 만든 경우)
+            logInfo('기존 빈 회차 재활용', ['round' => $roundNumber, 'round_id' => $existingRound['id']], 'draw');
+            $round = $existingRound;
+            $roundId = (int) $existingRound['id'];
+
+            // 프롬프트 조회 (재활용 경로)
+            $activePrompt = $this->prompt->getActive('weekly');
+            if (!$activePrompt) {
+                logError('활성 weekly 프롬프트 없음', [], 'draw');
+                return ['error' => 'NO_ACTIVE_PROMPT', 'message' => '활성 weekly 프롬프트가 없습니다.'];
+            }
+        } else {
+            // weekly 프롬프트 조회 (회차 생성 전에 체크)
+            $activePrompt = $this->prompt->getActive('weekly');
+            if (!$activePrompt) {
+                logError('활성 weekly 프롬프트 없음', [], 'draw');
+                return ['error' => 'NO_ACTIVE_PROMPT', 'message' => '활성 weekly 프롬프트가 없습니다.'];
+            }
+
+            // 새 회차 생성
+            $round = $this->round->create($roundNumber, $drawDate);
+            $roundId = (int) $round['id'];
+        }
 
         // active 이름 전체 조회
         $activeNames = $this->name->getActive();
