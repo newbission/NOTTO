@@ -1,7 +1,22 @@
+# VCS / git-ftp 메타파일
 .git*
-node_modules/
-vendor/   # 서버에서 composer install 안 한다면 빼야 함
+
+# Docker 관련 (공유 호스팅에선 사용 안 함)
+Dockerfile
+docker-compose.yml
+docker-entrypoint.sh
+.dockerignore
+
+# 문서
 *.md
-tests/
-.github/
+README*
+docs/
+
+# 환경 설정 예시 (실제 .env만 필요)
 .env.example
+
+# 개발 도구 메타
+.bkit/
+
+# DB 샘플 데이터 (schema.sql은 init_container.php에서 사용하므로 유지)
+database/sample.sql
