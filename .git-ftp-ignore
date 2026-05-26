@@ -1,0 +1,6 @@
+.git*
+node_modules/
+vendor/   # 서버에서 composer install 안 한다면 빼야 함
+*.md
+tests/
+.github/
