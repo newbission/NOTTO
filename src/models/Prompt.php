@@ -62,12 +62,15 @@ class Prompt
             $this->deactivateAll($type);
         }
 
-        $stmt = $this->pdo()->prepare(
+        // deactivateAll() 이후, INSERT 직전에 핸들을 잡아 재사용한다.
+        // (getDatabase()의 SELECT 1 헬스체크가 lastInsertId()를 0으로 만드는 것 방지)
+        $pdo = $this->pdo();
+        $stmt = $pdo->prepare(
             "INSERT INTO prompts (type, content, is_active) VALUES (?, ?, ?)"
         );
         $stmt->execute([$type, $content, $activate ? 1 : 0]);
 
-        $id = (int) $this->pdo()->lastInsertId();
+        $id = (int) $pdo->lastInsertId();
         return $this->findById($id);
     }
 

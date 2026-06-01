@@ -47,12 +47,15 @@ class Name
      */
     public function create(string $name): array
     {
-        $stmt = $this->pdo()->prepare(
+        // INSERT와 lastInsertId() 사이에 getDatabase()의 SELECT 1 헬스체크가
+        // 끼면 insert_id가 0으로 리셋되므로, 같은 핸들을 잡아 재사용한다.
+        $pdo = $this->pdo();
+        $stmt = $pdo->prepare(
             "INSERT INTO names (name, status) VALUES (?, 'pending')"
         );
         $stmt->execute([$name]);
 
-        $id = (int) $this->pdo()->lastInsertId();
+        $id = (int) $pdo->lastInsertId();
         logInfo("이름 등록", ['id' => $id, 'name' => $name, 'status' => 'pending'], 'model');
         return $this->findById($id);
     }

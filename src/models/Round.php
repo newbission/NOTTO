@@ -59,12 +59,16 @@ class Round
      */
     public function create(int $roundNumber, string $drawDate): array
     {
-        $stmt = $this->pdo()->prepare(
+        // 같은 연결 핸들을 재사용해야 lastInsertId()가 올바른 값을 반환한다.
+        // getDatabase()가 매 호출마다 SELECT 1 헬스체크를 실행하는데, INSERT와
+        // lastInsertId() 사이에 SELECT가 끼면 mysql_insert_id()가 0으로 리셋된다.
+        $pdo = $this->pdo();
+        $stmt = $pdo->prepare(
             "INSERT INTO rounds (round_number, draw_date) VALUES (?, ?)"
         );
         $stmt->execute([$roundNumber, $drawDate]);
 
-        $id = (int) $this->pdo()->lastInsertId();
+        $id = (int) $pdo->lastInsertId();
         logInfo('새 회차 생성', ['id' => $id, 'round_number' => $roundNumber, 'draw_date' => $drawDate], 'model');
         return $this->findById($id);
     }
