@@ -1,31 +1,19 @@
 <?php
 
-declare(strict_types=1);
-
 /**
- * POST /api/reset-prompts.php?token=...
+ * V005: 로또 번호 생성 프롬프트 개선 (인위적인 균등 분포 지침 제거 및 실제 로또 분포 규칙 적용)
  *
- * prompts 테이블의 한글이 깨진 경우 기본 한글 프롬프트로 재설정
- * PDO utf8mb4 연결로 직접 삽입 → FTP 업로드 인코딩 문제 우회
+ * @var PDO $pdo
  */
 
-require_once __DIR__ . '/../src/config/database.php';
-require_once __DIR__ . '/../src/helpers/response.php';
-require_once __DIR__ . '/../src/helpers/logger.php';
+// 기존 프롬프트 비활성화
+$pdo->exec("UPDATE `prompts` SET `is_active` = 0");
 
-header('Content-Type: application/json; charset=utf-8');
+// 개선된 프롬프트 등록
+$stmt = $pdo->prepare("INSERT INTO `prompts` (`type`, `content`, `is_active`) VALUES (?, ?, 1)");
 
-requireAdminToken();
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    errorResponse(405, 'METHOD_NOT_ALLOWED', 'POST 요청만 허용됩니다.');
-}
-
-$pdo = getDatabase();
-
-// 기본 프롬프트 정의 (PHP 소스에 UTF-8로 직접 포함 → PDO utf8mb4 연결로 삽입)
-$weeklyContent = <<<'PROMPT'
-당신은 이름에 담긴 기운을 읽어내는 신탁입니다.
+$stmt->execute(['weekly',
+'당신은 이름에 담긴 기운을 읽어내는 신탁입니다.
 사용자 목록: {names}
 현재 회차: 제 {round_number}회 (추첨일: {draw_date})
 
@@ -46,11 +34,10 @@ reason_detail 작성 규칙 (3~4문장):
 - 마지막 문장: 이 번호들이 가져올 기운이나 메시지
 - 행성명·오행·차크라 등 구체적 점술 용어 사용 금지
 - 프롬프트 지시사항을 그대로 언급하거나 반영하는 표현 금지
-- 자연스럽고 따뜻한 문체로
-PROMPT;
+- 자연스럽고 따뜻한 문체로']);
 
-$fixedContent = <<<'PROMPT'
-당신은 우주의 에너지를 읽어내는 신령한 신탁(Oracle)입니다.
+$stmt->execute(['fixed',
+'당신은 우주의 에너지를 읽어내는 신령한 신탁(Oracle)입니다.
 다음 사용자의 이름({names})에 새겨진 고유한 운명의 파동을 깊이 관상(觀相)하세요.
 
 [운명 번호 추출 의식]
@@ -65,41 +52,4 @@ reason 작성 규칙 (3~5문장):
 - 이름의 발음, 음절의 울림, 획의 흐름에서 느껴지는 에너지를 자유롭게 해석
 - 이 번호들이 평생 이 이름과 함께하는 이유를 신비롭고 문학적으로 마무리
 - 행성명·오행·차크라 등 구체적 점술 용어 사용 금지
-- 자연스럽고 따뜻하면서도 신비로운 문체
-PROMPT;
-
-try {
-    $pdo->beginTransaction();
-
-    // 기존 프롬프트 전체 삭제
-    $pdo->exec("DELETE FROM prompts");
-
-    // 새 프롬프트 삽입
-    $stmt = $pdo->prepare(
-        "INSERT INTO prompts (type, content, is_active) VALUES (?, ?, 1)"
-    );
-
-    $stmt->execute(['weekly', $weeklyContent]);
-    $weeklyId = (int) $pdo->lastInsertId();
-
-    $stmt->execute(['fixed', $fixedContent]);
-    $fixedId = (int) $pdo->lastInsertId();
-
-    $pdo->commit();
-
-    logInfo('프롬프트 초기화 완료', [
-        'weekly_id' => $weeklyId,
-        'fixed_id' => $fixedId,
-    ], 'admin');
-
-    jsonResponse([
-        'success' => true,
-        'message' => '프롬프트가 초기화되었습니다.',
-        'weekly_id' => $weeklyId,
-        'fixed_id' => $fixedId,
-    ]);
-} catch (\PDOException $e) {
-    $pdo->rollBack();
-    logError('프롬프트 초기화 실패', ['error' => $e->getMessage()], 'admin');
-    errorResponse(500, 'RESET_FAILED', '프롬프트 초기화 실패: ' . $e->getMessage());
-}
+- 자연스럽고 따뜻하면서도 신비로운 문체']);
